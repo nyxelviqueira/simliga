@@ -20,7 +20,7 @@ on:
     # Las horas van en UTC. En horario espanol de verano (UTC+2) esto cubre de
     # las 13:00 a las 01:20; en invierno (UTC+1), de las 12:00 a las 00:20.
     # LaLiga empieza a las 14:00 el fin de semana y termina sobre las 23:00.
-    - cron: "*/20 11-23 * * *"
+    - cron: "*/10 11-23 * * *"
   push:
     branches: ["main"]
     paths:
