@@ -12,9 +12,8 @@ on:
         required: true
         default: "20000"
   schedule:
-    # Horas UTC. En Espana peninsular son +1 en invierno y +2 en verano.
-    # Este horario mantiene el panel vivo sin depender del ordenador local.
-    - cron: "7 7,11,15,19,22 * * *"
+    # Cada 5 minutos. GitHub ejecuta los cron en UTC y puede retrasarlos si hay carga.
+    - cron: "*/5 * * * *"
   push:
     branches: ["main"]
     paths:
@@ -29,7 +28,7 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   publicar:

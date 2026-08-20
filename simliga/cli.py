@@ -349,12 +349,14 @@ def cmd_actualizar(args) -> int:
     except Exception as exc:                       # noqa: BLE001
         print(f"      aviso: no disponible ({exc})")
 
-    print(f"[3/5] Fechas y horarios confirmados (ESPN)")
+    print(f"[3/5] Fechas, horarios y resultados recientes (ESPN)")
     try:
         from .ingest.espn import update_schedule
 
         r = update_schedule(conn, args.temporada, force_download=True)
         print(f"      {r['actualizados']} partidos con fecha y hora")
+        if r.get("resultados"):
+            print(f"      {r['resultados']} resultado(s) finalizado(s)")
         if r.get("nombres_desconocidos"):
             print(f"      aviso: nombres sin casar: {', '.join(r['nombres_desconocidos'])}")
     except Exception as exc:                       # noqa: BLE001

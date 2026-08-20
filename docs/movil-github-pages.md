@@ -68,12 +68,17 @@ conexion, deberia abrir la ultima version cacheada.
 
 El workflow se ejecuta:
 
-- automaticamente varias veces al dia;
+- automaticamente cada 5 minutos;
 - cada vez que subes cambios a `main`;
 - manualmente desde **Actions > Publicar panel movil > Run workflow**.
 
 Desde el movil puedes abrir GitHub, entrar en esa accion y pulsar **Run
 workflow** cuando quieras forzar una actualizacion de resultados/calendario.
+
+En un repositorio publico, los runners estandar de GitHub Actions no consumen
+minutos de pago. El intervalo de 5 minutos es el minimo que permite GitHub para
+workflow programados; aun asi, GitHub puede retrasar alguna ejecucion si la
+plataforma tiene mucha carga.
 
 Desde el PC tambien puedes hacerlo sin entrar en GitHub con
 `actualizar-github.bat`. Para eso hay que guardar una vez un token:

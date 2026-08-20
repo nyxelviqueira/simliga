@@ -4,7 +4,9 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from simliga.db import connect, get_or_create_team, upsert_match
 from simliga.config import load_config
+from simliga.ingest import espn
 from simliga.ingest.espn import parse
 from simliga.output import contract
 
@@ -13,22 +15,37 @@ RESPUESTA = {
         {
             "date": "2026-08-27T18:30Z",
             "competitions": [{
+                "status": {"type": {"completed": False}},
                 "competitors": [
-                    {"homeAway": "home", "team": {"displayName": "Celta Vigo"}},
-                    {"homeAway": "away", "team": {"displayName": "Osasuna"}},
+                    {"homeAway": "home", "team": {"displayName": "Celta Vigo"}, "score": "0"},
+                    {"homeAway": "away", "team": {"displayName": "Osasuna"}, "score": "0"},
                 ]
             }],
         },
         {
             "date": "2026-08-22T15:00Z",
             "competitions": [{
+                "status": {"type": {"completed": False}},
                 "competitors": [
-                    {"homeAway": "away", "team": {"displayName": "Sevilla"}},
-                    {"homeAway": "home", "team": {"displayName": "Athletic Club"}},
+                    {"homeAway": "away", "team": {"displayName": "Sevilla"}, "score": "0"},
+                    {"homeAway": "home", "team": {"displayName": "Athletic Club"}, "score": "0"},
                 ]
             }],
         },
     ]
+}
+
+RESPUESTA_CON_RESULTADO = {
+    "events": [{
+        "date": "2026-08-19T19:00Z",
+        "competitions": [{
+            "status": {"type": {"completed": True}},
+            "competitors": [
+                {"homeAway": "home", "team": {"displayName": "Atlético Madrid"}, "score": "2"},
+                {"homeAway": "away", "team": {"displayName": "Málaga"}, "score": "0"},
+            ],
+        }],
+    }]
 }
 
 
@@ -48,9 +65,54 @@ def test_respeta_quien_es_local_aunque_venga_en_otro_orden():
     assert segundo["away"] == "Sevilla"
 
 
+def test_los_partidos_finalizados_traen_marcador():
+    df = parse(RESPUESTA_CON_RESULTADO)
+    fila = df.iloc[0]
+    assert fila["status"] == "played"
+    assert fila["home_goals"] == 2
+    assert fila["away_goals"] == 0
+
+
+def test_los_ceros_de_un_partido_programado_no_son_resultado():
+    df = parse(RESPUESTA)
+    fila = df.iloc[0]
+    assert fila["status"] == "scheduled"
+    assert pd.isna(fila["home_goals"])
+    assert pd.isna(fila["away_goals"])
+
+
 def test_un_evento_incompleto_se_descarta_sin_romper():
     incompleto = {"events": [{"date": "2026-09-01T18:00Z", "competitions": [{"competitors": []}]}]}
     assert parse(incompleto).empty
+
+
+def test_espn_marca_como_jugado_un_resultado_final(tmp_path, monkeypatch):
+    conn = connect(tmp_path / "simliga.sqlite")
+    local = get_or_create_team(conn, "Atletico de Madrid")
+    visitante = get_or_create_team(conn, "Malaga CF")
+    conn.execute(
+        "INSERT INTO team_aliases (alias, source, team_id) VALUES (?, ?, ?)",
+        ("Atlético Madrid", "espn", local),
+    )
+    conn.execute(
+        "INSERT INTO team_aliases (alias, source, team_id) VALUES (?, ?, ?)",
+        ("Málaga", "espn", visitante),
+    )
+    upsert_match(
+        conn, competition="ESP1", season="2026-27", stage="league",
+        match_date="2026-08-19", matchday=1, home_team_id=local,
+        away_team_id=visitante, home_goals=None, away_goals=None,
+        status="scheduled", source="openfootball/espana",
+    )
+    monkeypatch.setattr(espn, "descargar", lambda *a, **k: RESPUESTA_CON_RESULTADO)
+
+    resumen = espn.update_schedule(conn, "2026-27", force_download=True)
+
+    fila = conn.execute("SELECT * FROM matches").fetchone()
+    assert resumen["resultados"] == 1
+    assert (fila["home_goals"], fila["away_goals"]) == (2, 0)
+    assert fila["status"] == "played"
+    assert fila["source"] == "espn"
 
 
 # ------------------------------------------- deteccion de fecha provisional

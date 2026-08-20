@@ -1,4 +1,4 @@
-"""Fechas y horarios reales del calendario, desde la API publica de ESPN.
+"""Fechas, horarios y resultados recientes desde la API publica de ESPN.
 
 openfootball publica el emparejamiento de toda la temporada, pero con fechas de
 marcador de posicion: los diez partidos de cada jornada el mismo domingo. LaLiga
@@ -12,10 +12,11 @@ posicion** para las jornadas lejanas (los diez partidos el mismo dia a las
 lo decide `provisional_dates`, que mira si la jornada esta repartida en varios
 dias y horas.
 
-Este modulo solo toca la fecha y la hora de partidos que ya existen. Ni crea
-partidos ni escribe resultados: de eso se encargan football-data.co.uk y
-openfootball, y mezclar responsabilidades es la forma de acabar con dos fuentes
-peleando por la misma fila.
+Este modulo solo toca partidos que ya existen. openfootball crea el calendario
+y football-data.co.uk sigue siendo la fuente mas rica de resultados, xG y
+cuotas, pero ESPN suele marcar antes un partido como finalizado. Cuando ESPN
+trae un evento completado, guardamos ese marcador como resultado provisional;
+si football-data lo publica despues, su ingesta puede corregirlo.
 """
 from __future__ import annotations
 
@@ -50,22 +51,42 @@ def descargar(season: str, competition: str = COMP_LALIGA, force: bool = False) 
     return resp.json()
 
 
+def _score(equipo: dict) -> int | None:
+    valor = equipo.get("score")
+    if valor is None or valor == "":
+        return None
+    try:
+        return int(valor)
+    except ValueError:
+        return None
+
+
 def parse(datos: dict) -> pd.DataFrame:
-    """Extrae (fecha, hora, local, visitante) de la respuesta de ESPN."""
+    """Extrae calendario y marcadores finales de la respuesta de ESPN."""
     filas = []
     for evento in datos.get("events", []):
         competicion = evento.get("competitions", [{}])[0]
-        equipos = {c.get("homeAway"): c.get("team", {}).get("displayName")
-                   for c in competicion.get("competitors", [])}
+        equipos = {c.get("homeAway"): c for c in competicion.get("competitors", [])}
         if not equipos.get("home") or not equipos.get("away"):
             continue
+
+        estado = competicion.get("status", {}).get("type", {})
+        completado = bool(estado.get("completed"))
+        gl = _score(equipos["home"]) if completado else None
+        gv = _score(equipos["away"]) if completado else None
+        if completado and (gl is None or gv is None):
+            completado = False
+            gl = gv = None
 
         marca = pd.Timestamp(evento["date"])          # viene en UTC
         filas.append({
             "match_date": marca.strftime("%Y-%m-%d"),
             "kickoff_utc": marca.strftime("%H:%M"),
-            "home": equipos["home"],
-            "away": equipos["away"],
+            "home": equipos["home"].get("team", {}).get("displayName"),
+            "away": equipos["away"].get("team", {}).get("displayName"),
+            "home_goals": gl,
+            "away_goals": gv,
+            "status": "played" if completado else "scheduled",
         })
     return pd.DataFrame(filas)
 
@@ -76,13 +97,13 @@ def update_schedule(
     competition: str = COMP_LALIGA,
     force_download: bool = False,
 ) -> dict:
-    """Actualiza fecha y hora de los partidos ya cargados. Devuelve un recuento."""
+    """Actualiza calendario y resultados finalizados. Devuelve un recuento."""
     df = parse(descargar(season, competition, force_download))
     if df.empty:
-        return {"actualizados": 0, "sin_encontrar": 0, "total": 0}
+        return {"actualizados": 0, "resultados": 0, "sin_encontrar": 0, "total": 0}
 
     resolver = ResolverEquipos(conn)
-    actualizados = sin_encontrar = 0
+    actualizados = resultados = sin_encontrar = 0
 
     desconocidos: set[str] = set()
     for fila in df.itertuples(index=False):
@@ -93,6 +114,23 @@ def update_schedule(
             desconocidos.update(n for n, t in ((fila.home, local), (fila.away, visitante))
                                 if t is None)
             sin_encontrar += 1
+            continue
+
+        if pd.notna(fila.home_goals) and pd.notna(fila.away_goals):
+            cur = conn.execute(
+                """UPDATE matches
+                   SET match_date = ?, kickoff_utc = ?, home_goals = ?,
+                       away_goals = ?, status = 'played', source = ?
+                   WHERE season = ? AND competition = ? AND stage = 'league'
+                     AND home_team_id = ? AND away_team_id = ?""",
+                (fila.match_date, fila.kickoff_utc, int(fila.home_goals),
+                 int(fila.away_goals), SOURCE, season, competition, local, visitante),
+            )
+            if cur.rowcount:
+                actualizados += cur.rowcount
+                resultados += cur.rowcount
+            else:
+                sin_encontrar += 1
             continue
 
         cur = conn.execute(
@@ -121,4 +159,5 @@ def update_schedule(
 
     conn.commit()
     return {"actualizados": actualizados, "sin_encontrar": sin_encontrar,
-            "total": len(df), "nombres_desconocidos": sorted(desconocidos)}
+            "resultados": resultados, "total": len(df),
+            "nombres_desconocidos": sorted(desconocidos)}
