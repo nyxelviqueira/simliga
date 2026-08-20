@@ -79,6 +79,33 @@ jobs:
             echo "Base cacheada restaurada."
           fi
 
+      # Lo que `ingest` no trae. Ese comando solo baja football-data.co.uk, que
+      # son ligas domesticas; la base local se construyo ademas con estos dos, y
+      # sin ellos el panel sale sin competiciones europeas y con el reparto de
+      # plazas equivocado.
+      #
+      # Van fuera del bloque de "si no hay cache" a proposito: son idempotentes,
+      # cuestan segundos con la cache de descargas, y asi tambien arreglan una
+      # base cacheada que se creo sin ellos.
+      - name: Completar la base (competiciones UEFA y Copa del Rey)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # El historico europeo. Hace dos cosas: permite proyectar UCL, UEL y
+          # Conference, y da los partidos entre ligas con los que se estiman los
+          # desfases de Elo entre ellas. Sin el, los desfases salen vacios y los
+          # ratings de equipos de distintas ligas dejan de ser comparables.
+          python -m simliga calendario-uefa --temporadas \
+            2018-19 2019-20 2020-21 2021-22 2022-23 2023-24 2024-25 2025-26
+
+          # El campeon de Copa del Rey se lleva una plaza de Europa League y
+          # desplaza el reparto entero. No hay fuente automatica que lo de, asi
+          # que se registra a mano: HAY QUE ACTUALIZAR ESTA LINEA CADA TEMPORADA,
+          # con el campeon de la temporada anterior a la que se publica.
+          python -m simliga copa --temporada 2025-26 --campeon "Real Sociedad"
+
+          python -m simliga copa --temporada 2025-26 --ver
+
       - name: Actualizar datos y generar panel
         run: |
           python -m simliga actualizar --temporada "$TEMPORADA" --sims "$SIMS" --panel out/panel.html
