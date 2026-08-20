@@ -13,6 +13,7 @@ on:
         default: "20000"
   schedule:
     # Horas UTC. En Espana peninsular son +1 en invierno y +2 en verano.
+    # Este horario mantiene el panel vivo sin depender del ordenador local.
     - cron: "7 7,11,15,19,22 * * *"
   push:
     branches: ["main"]
