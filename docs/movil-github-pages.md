@@ -66,19 +66,39 @@ conexion, deberia abrir la ultima version cacheada.
 
 ## 5. Como se actualiza
 
-El workflow se ejecuta:
+El workflow se despierta cada 20 minutos entre las 11:00 y las 23:00 UTC (de la
+una del mediodia a la una de la madrugada, hora espanola de verano), ademas de
+cuando subes cambios a `main` o lo lanzas a mano desde **Actions > Publicar
+panel movil > Run workflow**.
 
-- automaticamente cada 5 minutos;
-- cada vez que subes cambios a `main`;
-- manualmente desde **Actions > Publicar panel movil > Run workflow**.
+Despertarse no es publicar. Antes de hacer nada caro, el paso **Hay algo nuevo
+que publicar** pregunta a la base si hay algun partido que ya deberia haber
+terminado y del que aun no tenemos resultado. Si no lo hay, se salta el resto y
+la ejecucion termina en medio minuto sin tocar la pagina.
 
-Desde el movil puedes abrir GitHub, entrar en esa accion y pulsar **Run
-workflow** cuando quieras forzar una actualizacion de resultados/calendario.
+En la practica eso significa que el panel se actualiza **poco despues de cada
+partido** y no a intervalos fijos. Un partido se da por terminado a los 105
+minutos de su hora de comienzo (90 mas descuento y descanso), asi que la
+publicacion cae entre 5 y 25 minutos despues del pitido final, segun donde
+caiga el ciclo.
+
+Dos detalles del funcionamiento:
+
+- **Se pregunta por lo que falta, no por lo que acaba de jugarse.** Asi la
+  puerta se cierra sola en cuanto el resultado entra en la base, y sigue
+  reintentando mientras la fuente tarde en publicarlo.
+- **Un partido aplazado deja de contar a los tres dias.** Conserva su fecha
+  vieja y nunca recibe resultado; sin ese tope mantendria la puerta abierta
+  indefinidamente y volveriamos a publicar en cada ciclo.
+
+Lanzandolo a mano se publica siempre, haya novedades o no: si lo pulsas tu es
+porque lo quieres ahora.
 
 En un repositorio publico, los runners estandar de GitHub Actions no consumen
-minutos de pago. El intervalo de 5 minutos es el minimo que permite GitHub para
-workflow programados; aun asi, GitHub puede retrasar alguna ejecucion si la
-plataforma tiene mucha carga.
+minutos de pago; aun asi, GitHub puede retrasar una ejecucion programada si la
+plataforma tiene carga. Y desactiva los cron de los repositorios sin actividad
+durante 60 dias: si dejas de tocarlo mucho tiempo, hay que reactivarlo desde la
+pestana Actions.
 
 Desde el PC tambien puedes hacerlo sin entrar en GitHub con
 `actualizar-github.bat`. Para eso hay que guardar una vez un token:

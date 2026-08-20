@@ -14,7 +14,8 @@ import numpy as np
 import pandas as pd
 
 from .config import COMP_LALIGA, COMP_SEGUNDA, OUT_DIR, load_config
-from .data import check_season_integrity, load_matches, load_odds
+from .data import (check_season_integrity, load_matches, load_odds,
+                   partidos_por_actualizar)
 from .db import connect
 from .model.dixon_coles import fit_dixon_coles
 from .model.elo import EloEngine, calibrate, run_elo
@@ -471,6 +472,45 @@ def cmd_calendario(args) -> int:
     return 0
 
 
+# ------------------------------------------------------------------------ novedades
+def cmd_novedades(args) -> int:
+    """¿Hay algun partido terminado del que aun no tengamos resultado?
+
+    Existe para que la publicacion automatica no tenga que ir a ciegas. Sin
+    esto solo caben dos malas opciones: republicar cada pocos minutos por si
+    acaso, o hacerlo a horas fijas y llegar tarde. Preguntando por lo que falta
+    se publica justo cuando hay algo que publicar.
+
+    Imprime en formato de salida de GitHub Actions con `--para-actions`, para
+    poder usarlo como condicion de los pasos siguientes.
+    """
+    conn, _ = _conn_and_names(args)
+
+    try:
+        pendientes = partidos_por_actualizar(conn, args.temporada)
+    except Exception as exc:                          # noqa: BLE001
+        # Sin base de datos utilizable no se puede decidir, y quedarse quieto
+        # seria peor: se publica y que el resto del proceso la construya.
+        print(f"No se pudo consultar la base ({exc}); se publica por si acaso.",
+              file=sys.stderr)
+        pendientes = None
+
+    hay = pendientes is None or not pendientes.empty
+    if args.para_actions:
+        print(f"publicar={'true' if hay else 'false'}")
+        return 0
+
+    if pendientes is None:
+        print("Base de datos no disponible.")
+    elif pendientes.empty:
+        print("Nada nuevo: no hay partidos terminados sin resultado.")
+    else:
+        print(f"{len(pendientes)} partido(s) terminados sin resultado:")
+        for m in pendientes.itertuples(index=False):
+            print(f"  {m.match_date} {m.kickoff_utc}  {m.home_team} - {m.away_team}")
+    return 0
+
+
 # ------------------------------------------------------------------ calendario-uefa
 def cmd_calendario_uefa(args) -> int:
     from .ingest.uefa import ingest_range
@@ -534,6 +574,14 @@ def build_parser() -> argparse.ArgumentParser:
     sim.add_argument("--panel", nargs="?", const=str(OUT_DIR / "panel.html"),
                      help="Genera tambien el panel HTML (por defecto out/panel.html)")
     sim.set_defaults(func=cmd_simulate)
+
+    nov = sub.add_parser(
+        "novedades",
+        help="¿Hay partidos terminados sin resultado? (para la publicacion automatica)")
+    nov.add_argument("--temporada", required=True)
+    nov.add_argument("--para-actions", action="store_true",
+                     help="Imprime publicar=true|false para GitHub Actions")
+    nov.set_defaults(func=cmd_novedades)
 
     cal_uefa = sub.add_parser(
         "calendario-uefa", help="Descarga el sorteo de las competiciones UEFA")

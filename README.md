@@ -401,9 +401,12 @@ En el movil, "Compartir -> Anadir a pantalla de inicio" le pone icono propio: la
 pagina trae los `meta` y el icono incrustados para que se vea como una app, con
 la barra de estado en el color del tema.
 
-**b) Publicarlo con GitHub Pages.** GitHub Actions genera y publica el panel
-automaticamente varias veces al dia, y tambien puedes lanzarlo a mano desde el
-movil con **Actions -> Publicar panel movil -> Run workflow**. Misma pagina y
+**b) Publicarlo con GitHub Pages.** GitHub Actions publica el panel **poco
+despues de cada partido**: se despierta cada 20 minutos en horario de futbol,
+pregunta si hay algun encuentro terminado sin resultado y solo entonces
+actualiza y publica; si no hay nada, termina en medio minuto sin tocar la
+pagina. Tambien puedes lanzarlo a mano desde el movil con **Actions -> Publicar
+panel movil -> Run workflow**. Misma pagina y
 mismas capacidades que (a), pero con URL fija y sin reenviarte el fichero. Como
 no hay endpoints de escritura, tampoco hay nada que proteger.
 
@@ -478,7 +481,7 @@ devuelve 401 sin token y 200 con el.
 ## Tests
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests -q          # 299 tests, ~64 s
+.venv/Scripts/python.exe -m pytest tests -q          # 323 tests, ~70 s
 .venv/Scripts/python.exe -m pytest tests -q -m "not historico"   # solo unitarios, ~1 s
 ```
 
@@ -642,7 +645,7 @@ Dockerfile             imagen para desplegarlo en un hosting
 arranque.sh            arranque del contenedor (exige SIMLIGA_TOKEN)
 fly.toml               configuración de Fly.io
 scripts/               validación completa, barrido, análisis de calibración
-tests/                 299 tests
+tests/                 323 tests
 ```
 
 ## Fuentes de datos

@@ -205,3 +205,58 @@ def promoted_into(
         return set(sub["home_team_id"]) | set(sub["away_team_id"])
 
     return participantes(season) - participantes(anterior)
+
+
+# Un partido de futbol dura 90 minutos mas descuento y descanso: hora y media
+# larga. Se toman 105 para dar por terminado uno cuyo resultado deberia estar ya
+# publicado, sin esperar a que la fuente vaya sobrada.
+DURACION_PARTIDO_MIN = 105
+
+# Pasados unos dias sin resultado, lo mas probable es que se aplazara y la fecha
+# que tenemos ya no valga. Sin este tope, un partido aplazado dejaria la puerta
+# abierta para siempre y se estaria publicando cada ciclo sin motivo.
+ANTIGUEDAD_MAXIMA_DIAS = 3
+
+
+def partidos_por_actualizar(
+    conn: sqlite3.Connection,
+    season: str,
+    ahora: pd.Timestamp | None = None,
+    competitions: tuple[str, ...] = (COMP_LALIGA,),
+    duracion_min: int = DURACION_PARTIDO_MIN,
+    antiguedad_maxima_dias: int = ANTIGUEDAD_MAXIMA_DIAS,
+) -> pd.DataFrame:
+    """Partidos que ya deberian haber terminado y de los que no tenemos resultado.
+
+    Es la pregunta que decide si merece la pena republicar el panel: si esta
+    vacio, nada ha cambiado desde la ultima vez y volver a simular solo gasta.
+
+    Se pregunta por lo que *falta*, no por lo que *acaba de jugarse*. La
+    diferencia importa: preguntando por lo segundo se republica igual aunque el
+    resultado ya estuviera guardado, y ademas se pierde el partido cuya fuente
+    tardo mas de lo previsto en publicarlo. Asi la puerta se cierra sola en
+    cuanto el dato entra, y lo reintenta mientras no este.
+
+    Necesita `kickoff_utc`: sin hora de comienzo no se puede saber si un partido
+    ha terminado, y esos se dejan fuera en vez de suponerles una hora.
+    """
+    ahora = pd.Timestamp(ahora) if ahora is not None else pd.Timestamp.utcnow().tz_localize(None)
+    limite_superior = (ahora - pd.Timedelta(minutes=duracion_min)).strftime("%Y-%m-%d %H:%M")
+    limite_inferior = (ahora - pd.Timedelta(days=antiguedad_maxima_dias)).strftime("%Y-%m-%d %H:%M")
+
+    marcadores = ",".join("?" * len(competitions))
+    return pd.read_sql_query(
+        f"""SELECT m.match_id, m.competition, m.match_date, m.kickoff_utc,
+                   th.name AS home_team, ta.name AS away_team
+            FROM matches m
+            JOIN teams th ON th.team_id = m.home_team_id
+            JOIN teams ta ON ta.team_id = m.away_team_id
+            WHERE m.season = ?
+              AND m.competition IN ({marcadores})
+              AND m.home_goals IS NULL
+              AND m.kickoff_utc IS NOT NULL
+              AND (m.match_date || ' ' || m.kickoff_utc) <= ?
+              AND (m.match_date || ' ' || m.kickoff_utc) >= ?
+            ORDER BY m.match_date, m.kickoff_utc""",
+        conn, params=[season, *competitions, limite_superior, limite_inferior],
+    )

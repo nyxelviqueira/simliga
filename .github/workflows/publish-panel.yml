@@ -12,8 +12,15 @@ on:
         required: true
         default: "20000"
   schedule:
-    # Cada 5 minutos. GitHub ejecuta los cron en UTC y puede retrasarlos si hay carga.
-    - cron: "*/5 * * * *"
+    # Cada 20 minutos, pero solo en las horas en que se juega. Lo que decide de
+    # verdad si se publica es el paso "Hay algo nuevo", que mira si hay algun
+    # partido terminado sin resultado; el resto de veces el trabajo se salta y
+    # la ejecucion cuesta medio minuto.
+    #
+    # Las horas van en UTC. En horario espanol de verano (UTC+2) esto cubre de
+    # las 13:00 a las 01:20; en invierno (UTC+1), de las 12:00 a las 00:20.
+    # LaLiga empieza a las 14:00 el fin de semana y termina sobre las 23:00.
+    - cron: "*/20 11-23 * * *"
   push:
     branches: ["main"]
     paths:
@@ -28,7 +35,12 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  # No se cancela la que ya esta corriendo. Cancelar tenia sentido cuando el
+  # cron iba cada 5 minutos y siempre habia una mas reciente en camino; con el
+  # cron actual la que corre es la que esta haciendo el trabajo de verdad, y
+  # matarla significaba ademas perder el paso que guarda la base en cache. De
+  # ahi venia que la cache casi nunca se escribiera.
+  cancel-in-progress: false
 
 jobs:
   publicar:
@@ -65,18 +77,40 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Crear base inicial si no hay cache
+      # Se mira el CONTENIDO, no solo si el fichero existe. Una cache guardada
+      # por una ejecucion que se quedo a medias deja una base que existe y esta
+      # incompleta, y entonces el panel sale mal sin que nada falle: fue lo que
+      # dejo los desfases de Elo entre ligas vacios durante dias.
+      - name: Crear o completar la base historica
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p data
-          if [ ! -f data/simliga.sqlite ]; then
-            inicio="${TEMPORADA%%-*}"
-            hasta=$((inicio - 1))
-            echo "No hay base cacheada: descargando historico 2010-${hasta}."
+          inicio="${TEMPORADA%%-*}"
+          hasta=$((inicio - 1))
+
+          # Con `sqlite3`, que ya viene en el runner: meter Python aqui obligaria
+          # a un heredoc indentado dentro del YAML, y la indentacion se le cuela
+          # al interprete. La liga mas pequena que trae `ingest` (la escocesa)
+          # pasa de 1.500 partidos, asi que por debajo de 1.000 esta incompleta.
+          faltan=""
+          if [ ! -s data/simliga.sqlite ]; then
+            faltan="base-inexistente"
+          else
+            for liga in ESP1 ESP2 ENG1 GER1 ITA1 FRA1 NED1 POR1 BEL1 TUR1 GRE1 SCO1; do
+              consulta="SELECT COUNT(*) FROM matches WHERE competition='$liga'"
+              n=$(sqlite3 data/simliga.sqlite "$consulta" 2>/dev/null || echo 0)
+              if [ "${n:-0}" -lt 1000 ]; then
+                faltan="$faltan $liga"
+              fi
+            done
+          fi
+
+          if [ -n "$faltan" ]; then
+            echo "Base incompleta o ausente ($faltan): descargando historico 2010-${hasta}."
             python -m simliga ingest --desde 2010 --hasta "${hasta}"
           else
-            echo "Base cacheada restaurada."
+            echo "Base cacheada restaurada y completa."
           fi
 
       # Lo que `ingest` no trae. Ese comando solo baja football-data.co.uk, que
@@ -106,14 +140,39 @@ jobs:
 
           python -m simliga copa --temporada 2025-26 --ver
 
+      # La puerta. Pregunta por lo que FALTA, no por lo que acaba de jugarse: asi
+      # se cierra sola en cuanto el resultado entra, y lo reintenta mientras la
+      # fuente tarde. Un partido cuya fecha paso hace mas de tres dias se ignora,
+      # porque casi seguro que se aplazo y si no dejaria la puerta abierta para
+      # siempre.
+      #
+      # A mano (workflow_dispatch) siempre se publica: si lo lanzas tu es porque
+      # quieres el panel ahora, no porque haya un partido nuevo.
+      - name: Hay algo nuevo que publicar
+        id: novedades
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m simliga novedades --temporada "$TEMPORADA"
+          python -m simliga novedades --temporada "$TEMPORADA" --para-actions >> "$GITHUB_OUTPUT"
+
       - name: Actualizar datos y generar panel
+        id: generar
+        if: >-
+          steps.novedades.outputs.publicar == 'true'
+          || github.event_name != 'schedule'
         run: |
           python -m simliga actualizar --temporada "$TEMPORADA" --sims "$SIMS" --panel out/panel.html
           cp out/panel.html out/index.html
           touch out/.nojekyll
 
+      - name: Nada que hacer
+        if: steps.generar.outcome == 'skipped'
+        run: |
+          echo "Ningun partido terminado sin resultado: el panel publicado sigue al dia."
+
       - name: Guardar base actualizada en cache
-        if: success()
+        if: steps.generar.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -122,13 +181,16 @@ jobs:
           key: simliga-db-${{ runner.os }}-${{ env.TEMPORADA }}-${{ github.run_id }}
 
       - name: Configurar GitHub Pages
+        if: steps.generar.outcome == 'success'
         uses: actions/configure-pages@v5
 
       - name: Subir artefacto Pages
+        if: steps.generar.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: out
 
       - name: Publicar en GitHub Pages
+        if: steps.generar.outcome == 'success'
         id: deployment
         uses: actions/deploy-pages@v4
