@@ -402,6 +402,7 @@ tbody tr:hover td { background: var(--surface-alt); }
 }
 /* Una franja inferior dice de un vistazo en que estado esta la jornada. */
 .jornada-btn[data-estado="played"] { box-shadow: inset 0 -3px 0 var(--ink-faint); }
+.jornada-btn[data-estado="live"] { box-shadow: inset 0 -3px 0 var(--drop); }
 .jornada-btn[data-estado="scenario"] { box-shadow: inset 0 -3px 0 var(--uel); }
 
 .encuentros { display: flex; flex-direction: column; gap: 2px; min-width: 760px; }
@@ -460,6 +461,8 @@ tbody tr:hover td { background: var(--surface-alt); }
 .marcador input.vacia-bloqueada { border-style: dotted; opacity: 0.75; }
 .marcador .guion { color: var(--ink-faint); }
 .encuentro-jugado { background: color-mix(in srgb, var(--ink-faint) 8%, transparent); }
+.encuentro-live { background: color-mix(in srgb, var(--drop) 8%, transparent); }
+.encuentro-live .marcador input { border-color: var(--drop); color: var(--drop); }
 .encuentro-escenario { background: color-mix(in srgb, var(--uel) 12%, transparent); }
 .encuentro-escenario .marcador input { border-color: var(--uel); }
 .borrar {
@@ -474,6 +477,7 @@ tbody tr:hover td { background: var(--surface-alt); }
   padding: 0.1rem 0.4rem; border-radius: 4px; white-space: nowrap;
 }
 .insignia-jugado { background: var(--surface-alt); color: var(--ink-soft); }
+.insignia-live { background: color-mix(in srgb, var(--drop) 16%, transparent); color: var(--drop); }
 .insignia-hipotesis { background: color-mix(in srgb, var(--uel) 25%, transparent); color: var(--ink); }
 
 /* -------------------------------------------------------------- partidos --- */
@@ -492,6 +496,11 @@ tbody tr:hover td { background: var(--surface-alt); }
 .partido .equipos > span { flex: 1 1 0; min-width: 0; }
 .partido .equipos > span:last-child { text-align: right; }
 .partido .equipos > span:last-child .equipo-con-escudo { justify-content: flex-end; }
+.marcador-live {
+  font-family: "IBM Plex Mono", monospace; font-weight: 700;
+  color: var(--drop); white-space: nowrap;
+}
+.partido.en-vivo { border-color: color-mix(in srgb, var(--drop) 55%, var(--line)); }
 .reparto { display: flex; height: 22px; border-radius: 4px; overflow: hidden; font-size: 0.66rem; }
 .reparto span {
   display: flex; align-items: center; justify-content: center;
@@ -612,6 +621,8 @@ dialog.ficha::backdrop { background: rgba(0, 0, 0, 0.45); }
   font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; white-space: nowrap;
 }
 .ficha-proximo .probabilidades b { color: var(--ink); font-weight: 700; }
+.ficha-proximo.en-vivo .probabilidades,
+.ficha-proximo.en-vivo .probabilidades b { color: var(--drop); }
 
 tbody tr[data-equipo] { cursor: pointer; }
 
@@ -1439,6 +1450,9 @@ tbody tr[data-equipo] { cursor: pointer; }
       intro.innerHTML = cal.scenario_count
         ? `Tienes <b>${cal.scenario_count}</b> ${cal.scenario_count === 1 ? "resultado hipotético puesto" : "resultados hipotéticos puestos"} a mano. Cuentan como puntos seguros en la simulación, pero no cambian la fuerza de ningún equipo: la pregunta que responden es «si pasa esto, cómo queda la tabla», no «aprende de esto».`
         : "Pon el resultado que quieras en los partidos por jugar y simula: esos puntos pasan a contar como seguros. Los partidos ya disputados no se pueden tocar.";
+      if (cal.live_count) {
+        intro.innerHTML += ` Hay <b>${cal.live_count}</b> ${cal.live_count === 1 ? "partido en juego" : "partidos en juego"}: se muestran con marcador parcial, pero no cuentan como resultado real hasta el final.`;
+      }
     }
 
     // --- selector de jornada ---
@@ -1447,10 +1461,11 @@ tbody tr[data-equipo] { cursor: pointer; }
       const b = el("button", "jornada-btn", String(bloque.matchday));
       b.setAttribute("aria-pressed", bloque.matchday === jornadaVista ? "true" : "false");
       if (bloque.scenario) b.dataset.estado = "scenario";
+      else if (bloque.live) b.dataset.estado = "live";
       else if (bloque.played === bloque.matches.length) b.dataset.estado = "played";
       b.title = `Jornada ${bloque.matchday} · ${bloque.date_from}` +
         (bloque.date_to !== bloque.date_from ? ` a ${bloque.date_to}` : "") +
-        ` · ${bloque.played} jugados, ${bloque.scenario} hipotéticos`;
+        ` · ${bloque.played} jugados, ${bloque.live} en juego, ${bloque.scenario} hipotéticos`;
       b.addEventListener("click", () => { jornadaVista = bloque.matchday; pintarCalendario(); });
       selector.append(b);
     }
@@ -1461,8 +1476,10 @@ tbody tr[data-equipo] { cursor: pointer; }
     lista.classList.toggle("solo-lectura", !editable);
     for (const m of bloque.matches) {
       const jugado = m.status === "played";
+      const enJuego = m.status === "live";
       const fila = el("div", "encuentro " +
-        (jugado ? "encuentro-jugado" : m.status === "scenario" ? "encuentro-escenario" : ""));
+        (jugado ? "encuentro-jugado" : enJuego ? "encuentro-live"
+          : m.status === "scenario" ? "encuentro-escenario" : ""));
 
       const hora = horaLocal(m.kickoff_utc);
       const cuando = el("div", "cuando" + (m.date_provisional ? " provisional" : ""));
@@ -1479,12 +1496,14 @@ tbody tr[data-equipo] { cursor: pointer; }
       const marcador = el("div", "marcador");
       const entradaLocal = el("input");
       const entradaVisita = el("input");
-      for (const [entrada, valor] of [[entradaLocal, m.home_goals], [entradaVisita, m.away_goals]]) {
+      const valorLocal = enJuego ? m.live_home_goals : m.home_goals;
+      const valorVisita = enJuego ? m.live_away_goals : m.away_goals;
+      for (const [entrada, valor] of [[entradaLocal, valorLocal], [entradaVisita, valorVisita]]) {
         entrada.type = "number";
         entrada.min = "0";
         entrada.max = "20";
         entrada.value = valor === null ? "" : valor;
-        entrada.disabled = jugado || !editable;
+        entrada.disabled = jugado || enJuego || !editable;
         if (entrada.disabled && entrada.value === "") entrada.classList.add("vacia-bloqueada");
         entrada.setAttribute("aria-label",
           `${nombreEquipo(m.home_team)} contra ${nombreEquipo(m.away_team)}`);
@@ -1498,6 +1517,9 @@ tbody tr[data-equipo] { cursor: pointer; }
       const extremo = el("div", "nota");
       if (jugado) {
         extremo.append(el("span", "insignia insignia-jugado", "jugado"));
+      } else if (enJuego) {
+        extremo.append(el("span", "insignia insignia-live", "en juego"));
+        if (m.live_detail) extremo.append(el("span", "fecha", m.live_detail));
       } else if (m.status === "scenario") {
         if (editable) {
           const quitar = el("button", "borrar", "quitar");
@@ -1520,7 +1542,7 @@ tbody tr[data-equipo] { cursor: pointer; }
       }
       fila.append(extremo);
 
-      if (!jugado && editable) {
+      if (!jugado && !enJuego && editable) {
         const enviar = () => {
           const l = entradaLocal.value, v = entradaVisita.value;
           if (l === "" || v === "") {
@@ -1565,9 +1587,11 @@ tbody tr[data-equipo] { cursor: pointer; }
     const cal = doc.calendar;
     if (!cal) return;
     for (const b of cal.matchdays) {
+      b.live = b.matches.filter(m => m.status === "live").length;
       b.scenario = b.matches.filter(m => m.status === "scenario").length;
     }
     cal.scenario_count = cal.matchdays.reduce((s, b) => s + b.scenario, 0);
+    cal.live_count = cal.matchdays.reduce((s, b) => s + b.live, 0);
   }
 
   /** Vuelca sobre el calendario las hipotesis guardadas en este navegador. */
@@ -1576,7 +1600,7 @@ tbody tr[data-equipo] { cursor: pointer; }
     const guardadas = almacen.leer();
     for (const b of doc.calendar.matchdays) {
       for (const m of b.matches) {
-        if (m.status === "played") continue;
+        if (m.status === "played" || m.status === "live") continue;
         const r = guardadas[m.match_id];
         if (r) { m.status = "scenario"; m.home_goals = r[0]; m.away_goals = r[1]; }
         else { m.status = "pending"; m.home_goals = null; m.away_goals = null; }
@@ -1609,6 +1633,7 @@ tbody tr[data-equipo] { cursor: pointer; }
       for (const b of doc.calendar.matchdays) {
         for (const m of b.matches) {
           if (m.match_id !== matchId) continue;
+          if (m.status === "live") continue;
           m.status = local === null ? "pending" : "scenario";
           m.home_goals = local;
           m.away_goals = visitante;
@@ -1790,13 +1815,15 @@ tbody tr[data-equipo] { cursor: pointer; }
 
     for (const m of doc.fixtures.slice(0, 20)) {
       const p = m.probabilities;
-      const card = el("div", "partido");
+      const enJuego = m.status === "live";
+      const card = el("div", "partido" + (enJuego ? " en-vivo" : ""));
       const hora = horaLocal(m.kickoff_utc);
       const fecha = el("div", "fecha");
       fecha.append(el("span", null,
         fechaLocal(m.kickoff_utc, m.date) + (hora ? ` · ${hora}` : "") +
         (m.matchday ? ` · J${m.matchday}` : "")));
       if (m.date_provisional) fecha.append(el("span", "provisional", "provisional"));
+      if (enJuego) fecha.append(el("span", "insignia insignia-live", "en juego"));
       card.append(fecha);
 
       const eq = el("div", "equipos");
@@ -1807,15 +1834,21 @@ tbody tr[data-equipo] { cursor: pointer; }
       eq.append(local, visita);
       card.append(eq);
 
-      const rep = el("div", "reparto");
-      for (const [clase, v] of [["local", p.home], ["empate", p.draw], ["visitante", p.away]]) {
-        const s = el("span", clase, v >= 0.12 ? Math.round(v * 100) + "%" : "");
-        s.style.flex = String(v);
-        rep.append(s);
+      if (enJuego) {
+        const detalle = m.live_detail ? ` · ${m.live_detail}` : "";
+        card.append(el("div", "marcador-live",
+          `${m.live_home_goals ?? "?"} – ${m.live_away_goals ?? "?"}${detalle}`));
+      } else {
+        const rep = el("div", "reparto");
+        for (const [clase, v] of [["local", p.home], ["empate", p.draw], ["visitante", p.away]]) {
+          const s = el("span", clase, v >= 0.12 ? Math.round(v * 100) + "%" : "");
+          s.style.flex = String(v);
+          rep.append(s);
+        }
+        card.append(rep);
+        card.append(el("div", "fecha",
+          `<span>Goles esperados ${num(m.expected_goals.home)} – ${num(m.expected_goals.away)}</span>`));
       }
-      card.append(rep);
-      card.append(el("div", "fecha",
-        `<span>Goles esperados ${num(m.expected_goals.home)} – ${num(m.expected_goals.away)}</span>`));
       contenedor.append(card);
     }
   }
@@ -1949,12 +1982,9 @@ tbody tr[data-equipo] { cursor: pointer; }
     for (const m of partidos) {
       const esLocal = m.home_team.team_id === equipo.team_id;
       const rival = esLocal ? m.away_team : m.home_team;
-      const p = m.probabilities;
-      const ganar = esLocal ? p.home : p.away;
-      const empatar = p.draw;
-      const perder = esLocal ? p.away : p.home;
+      const enJuego = m.status === "live";
       const hora = horaLocal(m.kickoff_utc);
-      const fila = el("div", "ficha-proximo");
+      const fila = el("div", "ficha-proximo" + (enJuego ? " en-vivo" : ""));
       fila.append(el("div", "fecha",
         fechaLocal(m.kickoff_utc, m.date) + (hora ? ` · ${hora}` : "")));
 
@@ -1963,12 +1993,23 @@ tbody tr[data-equipo] { cursor: pointer; }
       fila.append(rivalCaja);
 
       const probs = el("div", "probabilidades");
-      for (const [etiqueta, valor] of [["G", ganar], ["E", empatar], ["P", perder]]) {
-        const s = el("span");
-        s.append(document.createTextNode(etiqueta + " "), el("b", null, Math.round(valor * 100) + "%"));
-        probs.append(s);
+      if (enJuego) {
+        const gl = m.live_home_goals ?? "?";
+        const gv = m.live_away_goals ?? "?";
+        const marcador = esLocal ? `${gl}-${gv}` : `${gv}-${gl}`;
+        probs.append(el("span", null, "En juego "), el("b", null, marcador));
+      } else {
+        const p = m.probabilities;
+        const ganar = esLocal ? p.home : p.away;
+        const empatar = p.draw;
+        const perder = esLocal ? p.away : p.home;
+        for (const [etiqueta, valor] of [["G", ganar], ["E", empatar], ["P", perder]]) {
+          const s = el("span");
+          s.append(document.createTextNode(etiqueta + " "), el("b", null, Math.round(valor * 100) + "%"));
+          probs.append(s);
+        }
+        probs.title = "Probabilidad del equipo: ganar, empatar, perder";
       }
-      probs.title = "Probabilidad del equipo: ganar, empatar, perder";
       fila.append(probs);
       proximos.append(fila);
     }

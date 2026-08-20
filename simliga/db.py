@@ -39,7 +39,10 @@ CREATE TABLE IF NOT EXISTS matches (
     away_team_id INTEGER NOT NULL REFERENCES teams(team_id),
     home_goals   INTEGER,
     away_goals   INTEGER,
-    status       TEXT NOT NULL DEFAULT 'scheduled',   -- scheduled | played
+    status       TEXT NOT NULL DEFAULT 'scheduled',   -- scheduled | live | played
+    live_home_goals INTEGER,
+    live_away_goals INTEGER,
+    live_detail  TEXT,
     source       TEXT,
     UNIQUE (competition, season, stage, home_team_id, away_team_id)
 );
@@ -119,6 +122,9 @@ CREATE TABLE IF NOT EXISTS match_xg (
 # aparte al abrir.
 MIGRACIONES = (
     ("matches", "kickoff_utc", "TEXT"),
+    ("matches", "live_home_goals", "INTEGER"),
+    ("matches", "live_away_goals", "INTEGER"),
+    ("matches", "live_detail", "TEXT"),
 )
 
 
@@ -333,8 +339,8 @@ def set_scenario_result(
     ).fetchone()
     if fila is None:
         raise KeyError(f"No existe el partido {match_id}")
-    if fila["status"] == "played" or fila["home_goals"] is not None:
-        raise ValueError("Ese partido ya se jugo: su resultado no se puede cambiar")
+    if fila["status"] != "scheduled" or fila["home_goals"] is not None:
+        raise ValueError("Ese partido no admite escenarios: esta en juego o ya se jugo")
     if home_goals < 0 or away_goals < 0:
         raise ValueError("Los goles no pueden ser negativos")
 

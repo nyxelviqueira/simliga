@@ -1,6 +1,6 @@
 # Contrato de datos — salida del simulador
 
-**Versión de esquema:** `1.8.0` · **Formato:** un único fichero JSON, UTF-8
+**Versión de esquema:** `1.9.0` · **Formato:** un único fichero JSON, UTF-8
 
 Este documento describe el JSON que produce el motor de simulación. Está pensado
 para que se pueda construir un dashboard **sin leer el código del motor**. Si
@@ -43,7 +43,7 @@ Se genera con:
 
 ```jsonc
 {
-  "schema_version": "1.8.0",
+  "schema_version": "1.9.0",
   "engine_version": "0.7.0",
   "generated_at": "2026-08-19T21:14:05Z",
   "season": "2024-25",
@@ -353,6 +353,10 @@ partido real hasta que tenga marcador verdadero en la base.
   "date": "2026-08-23",
   "kickoff_utc": "2026-08-23T17:30:00Z",   // null si no se conoce
   "date_provisional": false,    // ver abajo
+  "status": "scheduled",        // scheduled | live
+  "live_home_goals": null,      // marcador parcial si status = live
+  "live_away_goals": null,
+  "live_detail": null,          // minuto/estado textual si status = live
   "home_team": {
     "team_id": 19,
     "name": "Atletico de Madrid",
@@ -372,6 +376,11 @@ partido real hasta que tenga marcador verdadero en la base.
 
 `probabilities` suma 1,0. `expected_goals` son las lambdas del modelo Poisson,
 no un xG observado.
+
+Cuando `status` es `live`, los campos `live_home_goals`, `live_away_goals` y
+`live_detail` reflejan el marcador parcial de ESPN. Ese parcial se muestra, pero
+no se incorpora a la clasificación ni sustituye a un resultado real hasta que la
+fuente marque el partido como finalizado.
 
 **`kickoff_utc`** es el instante del saque inicial en ISO UTC
 (`"2026-08-27T18:30:00Z"`), o `null` si no se conoce. Va en UTC a proposito: el
@@ -478,26 +487,26 @@ ocultarlo la haria pasar por completa sin serlo.
 ## 8. `calendar` — calendario y escenarios
 
 Calendario completo por jornadas. Es lo que permite montar una vista editable:
-cada partido declara su estado, y solo los que no se han jugado admiten
-hipotesis.
+cada partido declara su estado, y solo los pendientes admiten hipotesis.
 
 ```jsonc
 "calendar": {
   "scenario_count": 4,          // cuantos resultados hipoteticos hay activos
+  "live_count": 1,              // cuantos partidos estan en juego
   "editable": true,
   "matchdays": [
     {
       "matchday": 1,
       "date_from": "2026-08-15",
       "date_to": "2026-08-19",
-      "played": 6, "scenario": 0, "pending": 4,
+      "played": 6, "live": 1, "scenario": 0, "pending": 3,
       "matches": [
         {
           "match_id": 13478,
           "date": "2026-08-15",
           "kickoff_utc": "2026-08-15T17:30:00Z",
           "date_provisional": false,
-          "status": "played",           // played | scenario | pending
+          "status": "played",           // played | live | scenario | pending
           "home_team": {
             "team_id": 4,
             "name": "Sevilla FC",
@@ -511,7 +520,10 @@ hipotesis.
             "logo": "assets/escudos/rayo-vallecano.png"
           },
           "home_goals": 2,
-          "away_goals": 1
+          "away_goals": 1,
+          "live_home_goals": null,
+          "live_away_goals": null,
+          "live_detail": null
           // sin `probabilities`: ya se jugo, no hay nada que predecir
         }
       ]
@@ -520,16 +532,17 @@ hipotesis.
 }
 ```
 
-Los tres estados y lo que significan:
+Los cuatro estados y lo que significan:
 
 | `status` | Marcador | Editable | Cuenta en la simulacion |
 |---|---|---|---|
 | `played` | El real | **No** | Si, como hecho |
+| `live` | El parcial de ESPN | **No** | No: espera al final |
 | `scenario` | El que puso el usuario | Si | Si, como hecho |
 | `pending` | `null` | Si | No: lo decide la simulacion |
 
-Los partidos no jugados traen ademas `probabilities` con la prediccion del
-modelo (1X2), util para ensenarla al lado del campo de entrada.
+Los partidos pendientes y de escenario traen ademas `probabilities` con la
+prediccion del modelo (1X2), util para ensenarla al lado del campo de entrada.
 
 **Un `scenario` no es un resultado real y el frontend no debe presentarlo como
 tal.** En el bloque de liga, `current.played` incluye los hipoteticos porque es

@@ -162,7 +162,7 @@
       var partidos = jornadas[j].matches;
       for (var m = 0; m < partidos.length; m++) {
         var p = partidos[m];
-        if (p.status !== "pending") continue;
+        if (p.status !== "pending" && p.status !== "live") continue;
         var l = indicePorId.get(p.home_team.team_id);
         var v = indicePorId.get(p.away_team.team_id);
         if (l === undefined || v === undefined) continue;

@@ -357,6 +357,8 @@ def cmd_actualizar(args) -> int:
         print(f"      {r['actualizados']} partidos con fecha y hora")
         if r.get("resultados"):
             print(f"      {r['resultados']} resultado(s) finalizado(s)")
+        if r.get("en_juego"):
+            print(f"      {r['en_juego']} partido(s) en juego")
         if r.get("nombres_desconocidos"):
             print(f"      aviso: nombres sin casar: {', '.join(r['nombres_desconocidos'])}")
     except Exception as exc:                       # noqa: BLE001

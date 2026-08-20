@@ -1,6 +1,8 @@
 """Tests del calendario con fechas y horarios reales (ESPN)."""
 from __future__ import annotations
 
+import copy
+
 import pandas as pd
 import pytest
 
@@ -48,6 +50,27 @@ RESPUESTA_CON_RESULTADO = {
     }]
 }
 
+RESPUESTA_EN_JUEGO = {
+    "events": [{
+        "date": "2026-08-19T19:00Z",
+        "competitions": [{
+            "status": {
+                "displayClock": "63'",
+                "type": {
+                    "completed": False,
+                    "state": "in",
+                    "name": "STATUS_IN_PROGRESS",
+                    "shortDetail": "63'",
+                },
+            },
+            "competitors": [
+                {"homeAway": "home", "team": {"displayName": "Atlético Madrid"}, "score": "1"},
+                {"homeAway": "away", "team": {"displayName": "Málaga"}, "score": "0"},
+            ],
+        }],
+    }]
+}
+
 
 def test_separa_fecha_y_hora_del_instante_utc():
     df = parse(RESPUESTA)
@@ -79,6 +102,29 @@ def test_los_ceros_de_un_partido_programado_no_son_resultado():
     assert fila["status"] == "scheduled"
     assert pd.isna(fila["home_goals"])
     assert pd.isna(fila["away_goals"])
+
+
+def test_los_partidos_en_juego_traen_marcador_parcial_sin_ser_finales():
+    df = parse(RESPUESTA_EN_JUEGO)
+    fila = df.iloc[0]
+    assert fila["status"] == "live"
+    assert pd.isna(fila["home_goals"])
+    assert pd.isna(fila["away_goals"])
+    assert fila["live_home_goals"] == 1
+    assert fila["live_away_goals"] == 0
+    assert fila["live_detail"] == "63'"
+
+
+def test_los_estados_de_futbol_de_espn_tambien_cuentan_como_en_juego():
+    respuesta = copy.deepcopy(RESPUESTA_EN_JUEGO)
+    tipo = respuesta["events"][0]["competitions"][0]["status"]["type"]
+    tipo.pop("state")
+    tipo["name"] = "STATUS_FIRST_HALF"
+
+    fila = parse(respuesta).iloc[0]
+    assert fila["status"] == "live"
+    assert fila["live_home_goals"] == 1
+    assert pd.isna(fila["home_goals"])
 
 
 def test_un_evento_incompleto_se_descarta_sin_romper():
@@ -113,6 +159,37 @@ def test_espn_marca_como_jugado_un_resultado_final(tmp_path, monkeypatch):
     assert (fila["home_goals"], fila["away_goals"]) == (2, 0)
     assert fila["status"] == "played"
     assert fila["source"] == "espn"
+
+
+def test_espn_marca_en_juego_sin_guardarlo_como_resultado_final(tmp_path, monkeypatch):
+    conn = connect(tmp_path / "simliga.sqlite")
+    local = get_or_create_team(conn, "Atletico de Madrid")
+    visitante = get_or_create_team(conn, "Malaga CF")
+    conn.execute(
+        "INSERT INTO team_aliases (alias, source, team_id) VALUES (?, ?, ?)",
+        ("Atlético Madrid", "espn", local),
+    )
+    conn.execute(
+        "INSERT INTO team_aliases (alias, source, team_id) VALUES (?, ?, ?)",
+        ("Málaga", "espn", visitante),
+    )
+    upsert_match(
+        conn, competition="ESP1", season="2026-27", stage="league",
+        match_date="2026-08-19", matchday=1, home_team_id=local,
+        away_team_id=visitante, home_goals=None, away_goals=None,
+        status="scheduled", source="openfootball/espana",
+    )
+    monkeypatch.setattr(espn, "descargar", lambda *a, **k: RESPUESTA_EN_JUEGO)
+
+    resumen = espn.update_schedule(conn, "2026-27", force_download=True)
+
+    fila = conn.execute("SELECT * FROM matches").fetchone()
+    assert resumen["en_juego"] == 1
+    assert fila["status"] == "live"
+    assert fila["home_goals"] is None
+    assert fila["away_goals"] is None
+    assert (fila["live_home_goals"], fila["live_away_goals"]) == (1, 0)
+    assert fila["live_detail"] == "63'"
 
 
 # ------------------------------------------- deteccion de fecha provisional

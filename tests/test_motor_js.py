@@ -395,6 +395,23 @@ def test_los_partidos_pendientes_no_cuentan():
     assert e["contra"] == [0, 3, 1, 1]
 
 
+def test_los_partidos_en_juego_no_cuentan_como_resultado():
+    """El parcial se muestra, pero la tabla real espera al final del partido."""
+    calendario = {"matchdays": [{
+        "matchday": 1,
+        "matches": [
+            {"match_id": 1, "status": "live", "home_goals": None, "away_goals": None,
+             "live_home_goals": 1, "live_away_goals": 0, "live_detail": "63'",
+             "home_team": {"team_id": 10}, "away_team": {"team_id": 20}},
+        ],
+    }]}
+
+    e = _estado(calendario)
+    assert e["jugados"] == [0, 0, 0, 0]
+    assert e["puntos"] == [0, 0, 0, 0]
+    assert e["favor"] == [0, 0, 0, 0]
+
+
 def test_distingue_lo_jugado_de_lo_hipotetico():
     """La tabla tiene que poder decir cuantos de esos puntos te los inventaste."""
     e = _estado()

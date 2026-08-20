@@ -31,6 +31,15 @@ from .club_names import ResolverEquipos
 SOURCE = "espn"
 BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 LIGAS = {COMP_LALIGA: "esp.1"}
+ESTADOS_EN_JUEGO = {
+    "STATUS_IN_PROGRESS",
+    "STATUS_FIRST_HALF",
+    "STATUS_HALFTIME",
+    "STATUS_HALF_TIME",
+    "STATUS_SECOND_HALF",
+    "STATUS_EXTRA_TIME",
+    "STATUS_PENALTY_SHOOTOUT",
+}
 
 
 def descargar(season: str, competition: str = COMP_LALIGA, force: bool = False) -> dict:
@@ -61,6 +70,19 @@ def _score(equipo: dict) -> int | None:
         return None
 
 
+def _es_estado_en_juego(estado: dict) -> bool:
+    if estado.get("completed"):
+        return False
+
+    state = str(estado.get("state") or "").lower()
+    nombre_estado = str(estado.get("name") or "").upper()
+    if state == "in":
+        return True
+    if "IN_PROGRESS" in nombre_estado:
+        return True
+    return nombre_estado in ESTADOS_EN_JUEGO
+
+
 def parse(datos: dict) -> pd.DataFrame:
     """Extrae calendario y marcadores finales de la respuesta de ESPN."""
     filas = []
@@ -72,11 +94,19 @@ def parse(datos: dict) -> pd.DataFrame:
 
         estado = competicion.get("status", {}).get("type", {})
         completado = bool(estado.get("completed"))
-        gl = _score(equipos["home"]) if completado else None
-        gv = _score(equipos["away"]) if completado else None
-        if completado and (gl is None or gv is None):
+        en_juego = _es_estado_en_juego(estado)
+        gl = _score(equipos["home"]) if (completado or en_juego) else None
+        gv = _score(equipos["away"]) if (completado or en_juego) else None
+        if (completado or en_juego) and (gl is None or gv is None):
             completado = False
+            en_juego = False
             gl = gv = None
+        detalle = (
+            competicion.get("status", {}).get("displayClock")
+            or estado.get("shortDetail")
+            or estado.get("detail")
+            or estado.get("description")
+        )
 
         marca = pd.Timestamp(evento["date"])          # viene en UTC
         filas.append({
@@ -84,9 +114,12 @@ def parse(datos: dict) -> pd.DataFrame:
             "kickoff_utc": marca.strftime("%H:%M"),
             "home": equipos["home"].get("team", {}).get("displayName"),
             "away": equipos["away"].get("team", {}).get("displayName"),
-            "home_goals": gl,
-            "away_goals": gv,
-            "status": "played" if completado else "scheduled",
+            "home_goals": gl if completado else None,
+            "away_goals": gv if completado else None,
+            "live_home_goals": gl if en_juego else None,
+            "live_away_goals": gv if en_juego else None,
+            "live_detail": detalle if en_juego else None,
+            "status": "played" if completado else ("live" if en_juego else "scheduled"),
         })
     return pd.DataFrame(filas)
 
@@ -100,10 +133,11 @@ def update_schedule(
     """Actualiza calendario y resultados finalizados. Devuelve un recuento."""
     df = parse(descargar(season, competition, force_download))
     if df.empty:
-        return {"actualizados": 0, "resultados": 0, "sin_encontrar": 0, "total": 0}
+        return {"actualizados": 0, "resultados": 0, "en_juego": 0,
+                "sin_encontrar": 0, "total": 0}
 
     resolver = ResolverEquipos(conn)
-    actualizados = resultados = sin_encontrar = 0
+    actualizados = resultados = en_juego = sin_encontrar = 0
 
     desconocidos: set[str] = set()
     for fila in df.itertuples(index=False):
@@ -120,7 +154,8 @@ def update_schedule(
             cur = conn.execute(
                 """UPDATE matches
                    SET match_date = ?, kickoff_utc = ?, home_goals = ?,
-                       away_goals = ?, status = 'played', source = ?
+                       away_goals = ?, status = 'played', source = ?,
+                       live_home_goals = NULL, live_away_goals = NULL, live_detail = NULL
                    WHERE season = ? AND competition = ? AND stage = 'league'
                      AND home_team_id = ? AND away_team_id = ?""",
                 (fila.match_date, fila.kickoff_utc, int(fila.home_goals),
@@ -133,8 +168,30 @@ def update_schedule(
                 sin_encontrar += 1
             continue
 
+        if pd.notna(fila.live_home_goals) and pd.notna(fila.live_away_goals):
+            cur = conn.execute(
+                """UPDATE matches
+                   SET match_date = ?, kickoff_utc = ?, status = 'live', source = ?,
+                       live_home_goals = ?, live_away_goals = ?, live_detail = ?
+                   WHERE season = ? AND competition = ? AND stage = 'league'
+                     AND home_team_id = ? AND away_team_id = ?
+                     AND home_goals IS NULL""",
+                (fila.match_date, fila.kickoff_utc, SOURCE,
+                 int(fila.live_home_goals), int(fila.live_away_goals),
+                 fila.live_detail, season, competition, local, visitante),
+            )
+            if cur.rowcount:
+                actualizados += cur.rowcount
+                en_juego += cur.rowcount
+            else:
+                sin_encontrar += 1
+            continue
+
         cur = conn.execute(
-            """UPDATE matches SET match_date = ?, kickoff_utc = ?
+            """UPDATE matches
+               SET match_date = ?, kickoff_utc = ?,
+                   status = CASE WHEN home_goals IS NULL THEN 'scheduled' ELSE status END,
+                   live_home_goals = NULL, live_away_goals = NULL, live_detail = NULL
                WHERE season = ? AND competition = ? AND stage = 'league'
                  AND home_team_id = ? AND away_team_id = ?
                  AND home_goals IS NULL""",
@@ -159,5 +216,5 @@ def update_schedule(
 
     conn.commit()
     return {"actualizados": actualizados, "sin_encontrar": sin_encontrar,
-            "resultados": resultados, "total": len(df),
+            "resultados": resultados, "en_juego": en_juego, "total": len(df),
             "nombres_desconocidos": sorted(desconocidos)}

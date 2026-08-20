@@ -156,8 +156,26 @@ def test_un_partido_ya_jugado_no_admite_hipotesis(conn):
     from simliga.db import set_scenario_result
 
     _, jugado = _con_partidos(conn)
-    with pytest.raises(ValueError, match="ya se jugo"):
+    with pytest.raises(ValueError, match="no admite escenarios"):
         set_scenario_result(conn, jugado, 0, 5)
+
+
+def test_un_partido_en_juego_no_admite_hipotesis(conn):
+    """El directo se ensena, pero no se pisa con una hipotesis manual."""
+    from simliga.db import set_scenario_result
+
+    pendiente, _ = _con_partidos(conn)
+    conn.execute(
+        """UPDATE matches
+           SET status = 'live', live_home_goals = 1, live_away_goals = 0,
+               live_detail = ?
+           WHERE match_id = ?""",
+        ("63'", pendiente),
+    )
+    conn.commit()
+
+    with pytest.raises(ValueError, match="no admite escenarios"):
+        set_scenario_result(conn, pendiente, 0, 5)
 
 
 def test_un_partido_inexistente_falla_claro(conn):

@@ -63,7 +63,7 @@ def test_tiene_las_claves_de_primer_nivel_documentadas(documento):
                  "european_qualification",
                  "fixtures", "validation", "meta"}
     assert esperadas <= set(documento)
-    assert documento["schema_version"] == "1.8.0"
+    assert documento["schema_version"] == "1.9.0"
 
 
 def test_es_serializable_a_json(documento):
@@ -447,6 +447,16 @@ def test_los_proximos_partidos_y_la_ficha_no_ignoran_escenarios():
     assert "partidosDelEquipo(equipo, 5)" in plantilla
     assert "m.status !== \"played\"" in plantilla
     assert "Siguientes 5 partidos" in plantilla
+
+
+def test_el_panel_muestra_los_partidos_en_juego_sin_hacerlos_editables():
+    plantilla = (pathlib.Path(contract.__file__).parent / "dashboard.html").read_text(
+        encoding="utf-8")
+    assert 'm.status === "live"' in plantilla
+    assert "insignia-live" in plantilla
+    assert "marcador-live" in plantilla
+    assert "se muestran con marcador parcial" in plantilla
+    assert 'if (m.status === "played" || m.status === "live") continue;' in plantilla
 
 
 def test_la_ficha_compara_sin_y_con_escenario():

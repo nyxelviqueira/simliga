@@ -21,7 +21,7 @@ from ..sim.league import LeagueSimResult
 from ..sim.uefa import UefaSimResult
 from .team_identity import team_identity
 
-SCHEMA_VERSION = "1.8.0"
+SCHEMA_VERSION = "1.9.0"
 ENGINE_VERSION = "0.7.0"
 
 COMPETITION_NAMES = {
@@ -314,6 +314,19 @@ def build_fixtures_block(
             "kickoff_utc": _hora_iso(m),
             # La fecha aun no es definitiva: LaLiga no ha confirmado el horario.
             "date_provisional": bool(provisional.get(m.Index, False)),
+            "status": getattr(m, "status", "scheduled"),
+            "live_home_goals": (
+                None if pd.isna(getattr(m, "live_home_goals", None))
+                else int(getattr(m, "live_home_goals"))
+            ),
+            "live_away_goals": (
+                None if pd.isna(getattr(m, "live_away_goals", None))
+                else int(getattr(m, "live_away_goals"))
+            ),
+            "live_detail": (
+                None if pd.isna(getattr(m, "live_detail", None))
+                else str(getattr(m, "live_detail"))
+            ),
             "home_team": {"team_id": h, "name": home_name, **team_identity(home_name)},
             "away_team": {"team_id": a, "name": away_name, **team_identity(away_name)},
             "probabilities": {"home": round(p_home, 4), "draw": round(p_draw, 4),
@@ -513,9 +526,11 @@ def build_calendar_block(
 ) -> dict:
     """Calendario completo por jornadas, con el estado de cada partido.
 
-    Tres estados posibles, y la diferencia importa:
+    Cuatro estados posibles, y la diferencia importa:
 
     - `played`: se jugo de verdad. Su marcador no se puede tocar.
+    - `live`: se esta jugando. Su marcador parcial se muestra, pero no cuenta
+      como resultado final ni se puede editar como escenario.
     - `scenario`: resultado hipotetico puesto a mano. Cuenta en la clasificacion
       de partida de la simulacion, pero no altera la fuerza de los equipos.
     - `pending`: sin jugar y sin hipotesis. Lo decide la simulacion.
@@ -527,8 +542,10 @@ def build_calendar_block(
     jornadas: dict[int, dict] = {}
     for m in ordenados.itertuples():
         jugado = pd.notna(m.home_goals)
-        hipotetico = (not jugado) and int(m.match_id) in scenario
-        estado = "played" if jugado else ("scenario" if hipotetico else "pending")
+        en_juego = (not jugado) and getattr(m, "status", None) == "live"
+        hipotetico = (not jugado) and (not en_juego) and int(m.match_id) in scenario
+        estado = "played" if jugado else (
+            "live" if en_juego else ("scenario" if hipotetico else "pending"))
         home_name = names.get(int(m.home_team_id), str(m.home_team_id))
         away_name = names.get(int(m.away_team_id), str(m.away_team_id))
 
@@ -550,14 +567,24 @@ def build_calendar_block(
             },
             "home_goals": None,
             "away_goals": None,
+            "live_home_goals": None,
+            "live_away_goals": None,
+            "live_detail": None,
         }
         if jugado:
             partido["home_goals"] = int(m.home_goals)
             partido["away_goals"] = int(m.away_goals)
+        elif en_juego:
+            gl = getattr(m, "live_home_goals", None)
+            gv = getattr(m, "live_away_goals", None)
+            partido["live_home_goals"] = None if pd.isna(gl) else int(gl)
+            partido["live_away_goals"] = None if pd.isna(gv) else int(gv)
+            detalle = getattr(m, "live_detail", None)
+            partido["live_detail"] = None if pd.isna(detalle) else str(detalle)
         elif hipotetico:
             partido["home_goals"], partido["away_goals"] = scenario[int(m.match_id)]
 
-        if not jugado:
+        if not jugado and not en_juego:
             # La prediccion del modelo, para poder contrastar la hipotesis con
             # lo que el simulador considera probable.
             p_home, p_draw, p_away = fit.probs_1x2(int(m.home_team_id), int(m.away_team_id))
@@ -573,6 +600,7 @@ def build_calendar_block(
         bloque = jornadas[numero]
         estados = [p["status"] for p in bloque["matches"]]
         bloque["played"] = estados.count("played")
+        bloque["live"] = estados.count("live")
         bloque["scenario"] = estados.count("scenario")
         bloque["pending"] = estados.count("pending")
         bloque["date_from"] = min(p["date"] for p in bloque["matches"])
@@ -582,6 +610,7 @@ def build_calendar_block(
     return {
         "matchdays": lista,
         "scenario_count": sum(b["scenario"] for b in lista),
+        "live_count": sum(b["live"] for b in lista),
         "editable": True,
     }
 
