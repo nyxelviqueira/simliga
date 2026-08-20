@@ -410,6 +410,11 @@ no hay endpoints de escritura, tampoco hay nada que proteger.
 Con el usuario `nyxelviqueira` y un repositorio llamado `simliga`, la URL sera:
 `https://nyxelviqueira.github.io/simliga/`.
 
+Desde el PC se puede forzar esa misma actualizacion con `actualizar-github.bat`.
+La primera vez pide haber guardado un token de GitHub en
+`SIMLIGA_GITHUB_TOKEN`; el detalle esta en
+[`docs/movil-github-pages.md`](docs/movil-github-pages.md).
+
 **c) Servirlo desde el PC, con todo funcionando.** Doble clic en
 `panel-movil.bat` (o `simliga servidor --en-red`). La ventana muestra la
 direccion que hay que escribir en el movil:

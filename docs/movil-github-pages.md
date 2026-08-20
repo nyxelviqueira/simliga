@@ -75,6 +75,23 @@ El workflow se ejecuta:
 Desde el movil puedes abrir GitHub, entrar en esa accion y pulsar **Run
 workflow** cuando quieras forzar una actualizacion de resultados/calendario.
 
+Desde el PC tambien puedes hacerlo sin entrar en GitHub con
+`actualizar-github.bat`. Para eso hay que guardar una vez un token:
+
+1. En GitHub, abre **Settings** de tu usuario.
+2. Entra en **Developer settings > Personal access tokens > Fine-grained tokens**.
+3. Crea un token para el repositorio `nyxelviqueira/simliga`.
+4. Dale permiso **Actions: Read and write**.
+5. Copia el token y guardalo en Windows:
+
+```powershell
+setx SIMLIGA_GITHUB_TOKEN "github_pat_TU_TOKEN"
+```
+
+Cierra esa terminal y abre una nueva. A partir de ahi, doble clic en
+`actualizar-github.bat` lanza la publicacion remota con temporada `2026-27` y
+`20000` simulaciones.
+
 ## 6. Limitaciones de esta opcion
 
 La pagina publicada es estatica. Eso significa:
