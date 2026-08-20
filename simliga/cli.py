@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -511,6 +512,75 @@ def cmd_novedades(args) -> int:
     return 0
 
 
+# ------------------------------------------------------------- esperar-resultados
+# Cuanto se considera "recien terminado", en minutos desde el comienzo del
+# partido. La puerta de `novedades` se abre a los 105; con 150 se espera solo a
+# los partidos cuyo final previsto fue hace menos de tres cuartos de hora.
+#
+# El tope importa tanto como el sondeo: sin el, un partido aplazado o uno que la
+# fuente nunca llego a cerrar dejaria cada ejecucion parada media hora para
+# nada, y son tres dias los que un pendiente sigue contando.
+FRESCURA_MIN = 150
+
+
+def cmd_esperar_resultados(args) -> int:
+    """Sondea la fuente cada pocos minutos hasta que entre el resultado.
+
+    El cron no puede afinar mas: GitHub no baja de cinco minutos entre
+    ejecuciones programadas y ademas se salta unas cuantas cuando va cargado.
+    Dentro de una ejecucion si se puede preguntar cada dos minutos y medio, que
+    es lo que hace falta, porque ESPN tarda un cuarto de hora largo desde el
+    pitido final en marcar el partido como terminado.
+
+    Sin esto, la ejecucion que pilla el partido recien acabado publica un panel
+    sin el resultado y deja el trabajo al siguiente tick, que puede tardar otra
+    media hora en llegar. Esperando aqui, el resultado sale en cuanto la fuente
+    lo da.
+
+    Se vuelve en cuanto entra un resultado, para publicar sin mas demora, y en
+    el acto si no hay ningun partido recien terminado.
+    """
+    from .ingest.espn import update_schedule
+
+    conn, _ = _conn_and_names(args)
+
+    # La ventana en fraccion de dia: el filtro es el mismo que usa la puerta,
+    # solo que aqui se mide en minutos en vez de en dias.
+    ventana = args.frescura / (24 * 60)
+
+    def pendientes() -> set[int]:
+        df = partidos_por_actualizar(conn, args.temporada, antiguedad_maxima_dias=ventana)
+        return set(df["match_id"])
+
+    esperados = pendientes()
+    if not esperados:
+        print("Ningun partido recien terminado: no hay resultado que esperar.")
+        return 0
+
+    print(f"{len(esperados)} partido(s) recien terminados sin resultado.")
+    print(f"Sondeando ESPN cada {args.cada}s, {args.limite}s como mucho.")
+
+    comienzo = time.monotonic()
+    while True:
+        try:
+            update_schedule(conn, args.temporada, force_download=True)
+        except Exception as exc:                      # noqa: BLE001
+            # Un fallo de red no cancela la espera: suele ser pasajero y queda
+            # tiempo de sobra para volver a intentarlo.
+            print(f"  aviso: ESPN no responde ({exc})")
+        else:
+            llegados = esperados - pendientes()
+            if llegados:
+                espera = time.monotonic() - comienzo
+                print(f"  {len(llegados)} resultado(s) recibido(s) tras {espera:.0f}s.")
+                return 0
+
+        if time.monotonic() - comienzo + args.cada > args.limite:
+            print("  se agota la espera sin resultado; se publica lo que haya.")
+            return 0
+        time.sleep(args.cada)
+
+
 # ------------------------------------------------------------------ calendario-uefa
 def cmd_calendario_uefa(args) -> int:
     from .ingest.uefa import ingest_range
@@ -582,6 +652,17 @@ def build_parser() -> argparse.ArgumentParser:
     nov.add_argument("--para-actions", action="store_true",
                      help="Imprime publicar=true|false para GitHub Actions")
     nov.set_defaults(func=cmd_novedades)
+
+    esp = sub.add_parser(
+        "esperar-resultados",
+        help="Sondea la fuente hasta que entre el resultado de un partido recien terminado")
+    esp.add_argument("--temporada", required=True)
+    esp.add_argument("--cada", type=int, default=150, help="Segundos entre sondeos")
+    esp.add_argument("--limite", type=int, default=2100,
+                     help="Segundos que se espera como mucho")
+    esp.add_argument("--frescura", type=int, default=FRESCURA_MIN,
+                     help="Minutos desde el comienzo hasta los que se considera recien terminado")
+    esp.set_defaults(func=cmd_esperar_resultados)
 
     cal_uefa = sub.add_parser(
         "calendario-uefa", help="Descarga el sorteo de las competiciones UEFA")

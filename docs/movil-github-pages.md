@@ -66,7 +66,7 @@ conexion, deberia abrir la ultima version cacheada.
 
 ## 5. Como se actualiza
 
-El workflow se despierta cada 20 minutos entre las 11:00 y las 23:00 UTC (de la
+El workflow se despierta cada 10 minutos entre las 11:00 y las 23:00 UTC (de la
 una del mediodia a la una de la madrugada, hora espanola de verano), ademas de
 cuando subes cambios a `main` o lo lanzas a mano desde **Actions > Publicar
 panel movil > Run workflow**.
@@ -76,13 +76,24 @@ que publicar** pregunta a la base si hay algun partido que ya deberia haber
 terminado y del que aun no tenemos resultado. Si no lo hay, se salta el resto y
 la ejecucion termina en medio minuto sin tocar la pagina.
 
-En la practica eso significa que el panel se actualiza **poco despues de cada
-partido** y no a intervalos fijos. Un partido se da por terminado a los 105
-minutos de su hora de comienzo (90 mas descuento y descanso), asi que la
-publicacion cae entre 5 y 25 minutos despues del pitido final, segun donde
-caiga el ciclo.
+Cuando si hay algo, el paso siguiente **espera al resultado**. Hace falta
+porque la puerta se abre a los 105 minutos del comienzo (90 mas descuento y
+descanso) pero ESPN tarda todavia otros quince o veinte desde el pitido final
+en marcar el partido como terminado: la ejecucion puntual llega y no encuentra
+el dato. En vez de publicar un panel sin el, se queda preguntando cada dos
+minutos y medio, hasta 35, y sigue en cuanto entra.
 
-Dos detalles del funcionamiento:
+Ese ritmo el cron no lo puede dar. GitHub no baja de cinco minutos entre
+ejecuciones programadas y ademas se salta unas cuantas cuando va cargado: una
+tarde de LaLiga, de los trece ticks que tocaban con el cron anterior solo
+saltaron siete. Dentro de una ejecucion, en cambio, se pregunta al ritmo que
+convenga.
+
+En la practica eso significa que el panel se actualiza **poco despues de cada
+partido** y no a intervalos fijos: la publicacion cae unos veinte minutos
+despues del pitido final, que es basicamente lo que tarda la fuente.
+
+Tres detalles del funcionamiento:
 
 - **Se pregunta por lo que falta, no por lo que acaba de jugarse.** Asi la
   puerta se cierra sola en cuanto el resultado entra en la base, y sigue
@@ -90,9 +101,14 @@ Dos detalles del funcionamiento:
 - **Un partido aplazado deja de contar a los tres dias.** Conserva su fecha
   vieja y nunca recibe resultado; sin ese tope mantendria la puerta abierta
   indefinidamente y volveriamos a publicar en cada ciclo.
+- **Solo se espera a un partido que acaba de terminar.** Un aplazado sigue
+  contando como pendiente esos tres dias, pero no se le espera: si no, cada
+  ejecucion se quedaria media hora parada por un partido que quiza ni se jugo.
+  El corte esta en los 150 minutos desde el comienzo, tres cuartos de hora de
+  margen desde el final previsto.
 
-Lanzandolo a mano se publica siempre, haya novedades o no: si lo pulsas tu es
-porque lo quieres ahora.
+Lanzandolo a mano se publica siempre y sin esperas, haya novedades o no: si lo
+pulsas tu es porque lo quieres ahora.
 
 En un repositorio publico, los runners estandar de GitHub Actions no consumen
 minutos de pago; aun asi, GitHub puede retrasar una ejecucion programada si la

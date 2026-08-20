@@ -12,13 +12,18 @@ on:
         required: true
         default: "20000"
   schedule:
-    # Cada 20 minutos, pero solo en las horas en que se juega. Lo que decide de
-    # verdad si se publica es el paso "Hay algo nuevo", que mira si hay algun
+    # Cada diez minutos, pero solo en las horas en que se juega. Lo que decide
+    # de verdad si se publica es el paso "Hay algo nuevo", que mira si hay algun
     # partido terminado sin resultado; el resto de veces el trabajo se salta y
     # la ejecucion cuesta medio minuto.
     #
+    # Diez y no veinte porque GitHub se salta ejecuciones programadas cuando va
+    # cargado: de los trece ticks que tocaban con */20 en una tarde de LaLiga
+    # solo saltaron siete, con desfases de hasta dieciseis minutos. Este cron no
+    # es un horario, es una rifa; se compra el doble de papeletas.
+    #
     # Las horas van en UTC. En horario espanol de verano (UTC+2) esto cubre de
-    # las 13:00 a las 01:20; en invierno (UTC+1), de las 12:00 a las 00:20.
+    # las 13:00 a las 01:50; en invierno (UTC+1), de las 12:00 a las 00:50.
     # LaLiga empieza a las 14:00 el fin de semana y termina sobre las 23:00.
     - cron: "*/10 11-23 * * *"
   push:
@@ -155,6 +160,26 @@ jobs:
           set -euo pipefail
           python -m simliga novedades --temporada "$TEMPORADA"
           python -m simliga novedades --temporada "$TEMPORADA" --para-actions >> "$GITHUB_OUTPUT"
+
+      # Aqui se gana el cuarto de hora. La puerta se abre a los 105 minutos del
+      # comienzo, pero ESPN tarda todavia unos quince o veinte desde el pitido
+      # final en marcar el partido como terminado, asi que la ejecucion que
+      # llega puntual se encuentra sin el resultado. Antes publicaba un panel
+      # sin el y dejaba el trabajo al siguiente tick, que con el cron de GitHub
+      # puede tardar otra media hora larga.
+      #
+      # En vez de eso se espera aqui dentro, preguntando cada dos minutos y
+      # medio, que es un ritmo que el cron no puede dar. Se vuelve en cuanto
+      # entra el resultado, y en el acto si no hay ningun partido recien
+      # terminado a quien esperar.
+      #
+      # A mano no se espera: si lo lanzas tu es porque quieres el panel ya.
+      - name: Esperar a que la fuente publique el resultado
+        if: >-
+          steps.novedades.outputs.publicar == 'true'
+          && github.event_name == 'schedule'
+        run: |
+          python -m simliga esperar-resultados --temporada "$TEMPORADA"             --cada 150 --limite 2100
 
       - name: Actualizar datos y generar panel
         id: generar
