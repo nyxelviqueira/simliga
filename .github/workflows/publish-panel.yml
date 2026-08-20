@@ -1,0 +1,107 @@
+name: Publicar panel movil
+
+on:
+  workflow_dispatch:
+    inputs:
+      temporada:
+        description: "Temporada a publicar"
+        required: true
+        default: "2026-27"
+      sims:
+        description: "Numero de simulaciones"
+        required: true
+        default: "20000"
+  schedule:
+    # Horas UTC. En Espana peninsular son +1 en invierno y +2 en verano.
+    - cron: "7 7,11,15,19,22 * * *"
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/publish-panel.yml"
+      - "requirements.txt"
+      - "simliga/**"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      TEMPORADA: ${{ github.event.inputs.temporada || '2026-27' }}
+      SIMS: ${{ github.event.inputs.sims || '20000' }}
+
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Restaurar base de datos cacheada
+        id: cache-db
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/simliga.sqlite
+            data/raw
+          key: simliga-db-${{ runner.os }}-${{ env.TEMPORADA }}-${{ github.run_id }}
+          restore-keys: |
+            simliga-db-${{ runner.os }}-${{ env.TEMPORADA }}-
+            simliga-db-${{ runner.os }}-
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Crear base inicial si no hay cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          if [ ! -f data/simliga.sqlite ]; then
+            inicio="${TEMPORADA%%-*}"
+            hasta=$((inicio - 1))
+            echo "No hay base cacheada: descargando historico 2010-${hasta}."
+            python -m simliga ingest --desde 2010 --hasta "${hasta}"
+          else
+            echo "Base cacheada restaurada."
+          fi
+
+      - name: Actualizar datos y generar panel
+        run: |
+          python -m simliga actualizar --temporada "$TEMPORADA" --sims "$SIMS" --panel out/panel.html
+          cp out/panel.html out/index.html
+          touch out/.nojekyll
+
+      - name: Guardar base actualizada en cache
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/simliga.sqlite
+            data/raw
+          key: simliga-db-${{ runner.os }}-${{ env.TEMPORADA }}-${{ github.run_id }}
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir artefacto Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

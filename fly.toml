@@ -1,0 +1,38 @@
+# Configuracion de Fly.io. Ver "Llevarlo al movil" en el README.
+#
+# `fly launch` reescribe este fichero si se lo permites; dile que no, o
+# perderas el volumen y la parada automatica que estan puestos a proposito.
+
+app = "simliga"
+primary_region = "mad"                  # Madrid: el que menos latencia da aqui
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  SIMLIGA_TEMPORADA = "2026-27"
+  SIMLIGA_DATA = "/datos"
+
+# El disco que sobrevive a los reinicios. Sin el, cada vez que la maquina se
+# despierta volveria a la base de datos de la imagen y se perderia todo lo
+# descargado desde el despliegue.
+[[mounts]]
+  source = "datos"
+  destination = "/datos"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # La maquina se apaga sola cuando no la usas y se enciende al entrar. Es lo
+  # que mantiene esto en el plan gratuito; el precio es que la primera visita
+  # tras un rato tarda unos segundos en responder.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  # 1 GB de memoria porque el ajuste del modelo recorre 50.000 partidos con
+  # numpy y pandas. Con 256 MB el proceso muere durante el arranque.
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

@@ -1,0 +1,13 @@
+# Todo lo que no necesita la imagen. Sin esto, el contexto de build se lleva
+# el entorno virtual y la cache de descargas: cientos de megas para nada.
+.venv/
+data/raw/
+out/
+tests/
+scripts/
+docs/
+__pycache__/
+*.pyc
+.git/
+.claude/
+*.bat

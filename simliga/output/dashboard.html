@@ -1,0 +1,2300 @@
+<!-- Plantilla del panel. `dashboard.py` le mete dentro el documento (DATOS_JSON)
+     y el motor de simulacion en JavaScript (MOTOR_JS).
+     El fichero resultante funciona de dos maneras:
+       - suelto (doble clic, o abierto en el movil): simula por su cuenta y guarda
+         los resultados hipoteticos en el propio navegador, tambien sin conexion
+       - servido por `simliga servidor`: ademas puede descargar datos nuevos y
+         guardar las hipotesis en la base de datos, compartidas con la consola -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F1F3F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D1116" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LaLiga">
+<title>Probabilidades de LaLiga</title>
+<meta name="simliga-modo" content="MODO_PANEL">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAB00lEQVR42u3dsRHAIAwEQRVCB3RK09AAgYYI0Hou/sDa2I7RurQtvALBITgEh+AQHIJDcAgOwSE4JDgEh+AQHIJDcAgOwSE4BIcEh+AQHIJDcAgOwSE4BIfgkOBQJRzz6EEBDjjggAMOOOCAAw444IADDjjggAMOOOCAQ3DAAQcccMABBxxwwAEHHHDAAQcccMABBxyCAw444IADDjjggAMOOOCAAw444IADDjjggAMOOODI4cALDjjggAMOOOCAAw444IADDjjggAMOOOCoe1o44IADDjjggAMOOOCAAw444IADDjjggAMOOOCAAw444IADDjjggAMOOOCAAw444IADDjjggAMOOOCAAw684IADDjjggAMOOOCAAw444IADDjjggAMOOOCAA47rcTgtHHDAAQcccMABBxxwwAEHHHDAAYcFOOCAAw444PiaFxxwwAEHHBbgsACHBTgswOG0cDgMHHDAAQcccMABBxxwWIDDAhwW4LAAh9PC4bRwwAEHHHDAAQcccMABBxwW4LAAhwU4nBYOp4XDYeCAAw444IADjoc+jC9/TRAcgkNwCA4JDsEhOASH4BAcgkNwCA7BITi8BcEhOASH4BAcgkNwCA7BoaItGRXO6oilUN4AAAAASUVORK5CYII=">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAB00lEQVR42u3dsRHAIAwEQRVCB3RK09AAgYYI0Hou/sDa2I7RurQtvALBITgEh+AQHIJDcAgOwSE4JDgEh+AQHIJDcAgOwSE4BIcEh+AQHIJDcAgOwSE4BIfgkOBQJRzz6EEBDjjggAMOOOCAAw444IADDjjggAMOOOCAQ3DAAQcccMABBxxwwAEHHHDAAQcccMABBxyCAw444IADDjjggAMOOOCAAw444IADDjjggAMOOODI4cALDjjggAMOOOCAAw444IADDjjggAMOOOCoe1o44IADDjjggAMOOOCAAw444IADDjjggAMOOOCAAw444IADDjjggAMOOOCAAw444IADDjjggAMOOOCAAw684IADDjjggAMOOOCAAw444IADDjjggAMOOOCAA47rcTgtHHDAAQcccMABBxxwwAEHHHDAAYcFOOCAAw444PiaFxxwwAEHHBbgsACHBTgswOG0cDgMHHDAAQcccMABBxxwWIDDAhwW4LAAh9PC4bRwwAEHHHDAAQcccMABBxwW4LAAhwU4nBYOp4XDYeCAAw444IADjoc+jC9/TRAcgkNwCA4JDsEhOASH4BAcgkNwCA7BITi8BcEhOASH4BAcgkNwCA7BoaItGRXO6oilUN4AAAAASUVORK5CYII=">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+/* ---------------------------------------------------------------- tokens ---
+   Tres estados de tema: claro explicito, oscuro explicito y "el del sistema",
+   que no marca nada en la raiz. Por eso la paleta clara vive en :root pelado. */
+:root {
+  --ground:      #F1F3F5;
+  --surface:     #FFFFFF;
+  --surface-alt: #E9EDF1;
+  --ink:         #10161C;
+  --ink-soft:    #5A6672;
+  --ink-faint:   #8B96A2;
+  --line:        #D8DEE4;
+  --line-strong: #BCC6D0;
+  --accent:      #8E2437;
+  --accent-ink:  #FFFFFF;
+  --heat:        142, 36, 55;
+
+  --ucl:  #2F7D62;
+  --uel:  #B4801F;
+  --uecl: #5E82A6;
+  --drop: #B23A2E;
+
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0D1116; --surface: #151B22; --surface-alt: #1C242D;
+    --ink: #E8EDF2; --ink-soft: #93A1AE; --ink-faint: #6B7885;
+    --line: #262F38; --line-strong: #38434F;
+    --accent: #E05A72; --accent-ink: #1A0A0F; --heat: 224, 90, 114;
+    --ucl: #4FB894; --uel: #D9A441; --uecl: #8FAFCC; --drop: #E0705F;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0D1116; --surface: #151B22; --surface-alt: #1C242D;
+  --ink: #E8EDF2; --ink-soft: #93A1AE; --ink-faint: #6B7885;
+  --line: #262F38; --line-strong: #38434F;
+  --accent: #E05A72; --accent-ink: #1A0A0F; --heat: 224, 90, 114;
+  --ucl: #4FB894; --uel: #D9A441; --uecl: #8FAFCC; --drop: #E0705F;
+}
+
+/* ----------------------------------------------------------------- base --- */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+.envoltura {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.75rem;
+}
+
+h1, h2, h3 {
+  font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+  text-wrap: balance; margin: 0; letter-spacing: -0.02em;
+}
+h1 { font-size: clamp(1.9rem, 4.5vw, 2.7rem); font-weight: 800; line-height: 1.08; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+p  { margin: 0; max-width: 66ch; }
+
+.etiqueta {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* -------------------------------------------------------------- cabecera --- */
+.cabecera { display: flex; flex-direction: column; gap: 1.25rem; }
+.titulo-fila {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap;
+}
+.temporada {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 1.05rem; color: var(--accent); font-weight: 500;
+}
+
+.procedencia {
+  display: flex; flex-wrap: wrap; gap: 0.75rem 2rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.procedencia div { display: flex; flex-direction: column; gap: 0.1rem; }
+.procedencia b { font-family: Archivo, sans-serif; font-size: 1.05rem; font-weight: 700; }
+
+/* --------------------------------------------------------------- mandos --- */
+.mandos {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.mandos label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+.mandos input[type="number"] {
+  width: 7.5rem; padding: 0.4rem 0.55rem;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.85rem;
+  color: var(--ink); background: var(--ground);
+  border: 1px solid var(--line-strong); border-radius: 6px;
+}
+.mandos input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+/* Barra de avance de la simulacion local. En el movil una tirada larga pasa de
+   un segundo, y sin nada que se mueva la pagina parece colgada. */
+.barra {
+  flex-basis: 100%; height: 3px; border-radius: 2px;
+  background: var(--line); overflow: hidden;
+}
+.barra i { display: block; height: 100%; width: 0; background: var(--accent); }
+
+button {
+  font: inherit; font-weight: 600; font-size: 0.85rem;
+  padding: 0.45rem 1.1rem; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+  transition: opacity 0.15s;
+}
+button:hover:not(:disabled) { opacity: 0.85; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secundario {
+  background: transparent; color: var(--ink); border-color: var(--line-strong);
+}
+
+.estado { font-size: 0.82rem; color: var(--ink-soft); margin-left: auto; }
+.estado[data-tipo="error"] { color: var(--drop); font-weight: 600; }
+.estado[data-tipo="ok"] { color: var(--ucl); }
+
+/* Cuanto se mueve un equipo respecto a la clasificacion real, en la pestaña
+   de clasificacion simulada. */
+.movimiento {
+  margin-left: 0.4rem; font-size: 0.72rem; font-weight: 700;
+  font-family: "IBM Plex Mono", monospace;
+}
+.movimiento.sube { color: var(--ucl); }
+.movimiento.baja { color: var(--drop); }
+/* Partidos jugados de los que alguno es hipotesis: se marca para que no se
+   lea como una tabla real con equipos a distinto numero de partidos. */
+.con-hipotesis { color: var(--uel); font-weight: 600; }
+/* Un resultado de la racha puesto a mano, no jugado. */
+.forma .hipotesis { outline: 1px dashed var(--uel); outline-offset: 1px; }
+
+.aviso {
+  padding: 0.8rem 1.1rem; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--uel);
+  font-size: 0.86rem; color: var(--ink-soft);
+}
+.aviso b { color: var(--ink); }
+.aviso code {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.82em;
+  background: var(--surface-alt); padding: 0.1rem 0.35rem; border-radius: 4px;
+}
+
+/* --------------------------------------------------------------- resumen --- */
+.resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+.tarjeta {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 1.1rem 1.15rem;
+  display: flex; flex-direction: column; gap: 0.55rem;
+  border-top: 3px solid var(--marca, var(--accent));
+}
+.tarjeta .cifra {
+  font-family: Archivo, sans-serif; font-size: 2.1rem; font-weight: 800;
+  line-height: 1; color: var(--marca, var(--accent));
+}
+.tarjeta .quien { font-weight: 600; font-size: 1rem; }
+.tarjeta .pie { font-size: 0.82rem; color: var(--ink-soft); }
+
+/* ---------------------------------------------------------------- tablas --- */
+.seccion { display: flex; flex-direction: column; gap: 0.9rem; }
+/* El `display: flex` de arriba gana al `[hidden] { display: none }` del
+   navegador, asi que una seccion oculta seguia viendose vacia. */
+[hidden] { display: none !important; }
+.seccion-intro { color: var(--ink-soft); font-size: 0.88rem; }
+
+.marco {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); overflow-x: auto;
+}
+
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+thead th {
+  position: sticky; top: 0; background: var(--surface-alt);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-soft); font-weight: 500; text-align: right;
+  padding: 0.7rem 0.6rem; white-space: nowrap; border-bottom: 1px solid var(--line);
+}
+thead th:nth-child(-n+2) { text-align: left; }
+tbody td {
+  padding: 0.48rem 0.6rem; border-bottom: 1px solid var(--line);
+  text-align: right; white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--surface-alt); }
+
+.col-pos { width: 2.6rem; text-align: left !important; color: var(--ink-soft); }
+.col-equipo { text-align: left !important; font-weight: 600; }
+.equipo-con-escudo {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  min-width: 0; max-width: 100%; vertical-align: middle;
+}
+.escudo {
+  width: 20px; height: 20px; object-fit: contain; flex: 0 0 20px;
+}
+.equipo-nombre {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.fila-esp td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+
+/* Anchos declarados: con once columnas, dejar que el navegador reparta hace
+   que los nombres largos empujen a las probabilidades y la tabla baile al
+   regenerar con otros datos. */
+.tabla-liga { table-layout: fixed; min-width: 980px; }
+.tabla-liga .c-pos { width: 44px; }
+.tabla-liga .c-equipo { width: 190px; }
+.tabla-liga .c-mini { width: 40px; }
+.tabla-liga .c-pts { width: 104px; }
+.tabla-liga .c-barra { width: 120px; }
+.tabla-liga .c-prob { width: 84px; }
+
+.banda { border-left: 3px solid transparent; padding-left: 0.55rem; }
+.banda-ucl  { border-left-color: var(--ucl); }
+.banda-uel  { border-left-color: var(--uel); }
+.banda-uecl { border-left-color: var(--uecl); }
+.banda-drop { border-left-color: var(--drop); }
+
+.rango { position: relative; height: 16px; min-width: 130px; }
+.rango .via { position: absolute; inset: 6px 0; border-radius: 2px; background: var(--surface-alt); }
+.rango .tramo {
+  position: absolute; top: 6px; height: 4px; border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.rango .mediana {
+  position: absolute; top: 2px; width: 2px; height: 12px;
+  background: var(--accent); border-radius: 1px;
+}
+
+.prob-nula { color: var(--ink-faint); }
+.prob-alta { font-weight: 600; }
+/* Los puntos que vienen de una hipotesis se distinguen de los reales: una tabla
+   con escenarios activos no puede parecer la clasificacion de verdad. */
+.con-hipotesis { color: var(--uel); font-weight: 600; }
+
+/* ------------------------------------------------------------ pestanas --- */
+/* Las dos tablas comparten sitio en vez de apilarse: son parecidas de un
+   vistazo y, separadas, es facil mirar una creyendo que es la otra. */
+.pestanas {
+  display: flex; gap: 2px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: -1px;
+}
+.pestana {
+  background: transparent; border: 1px solid transparent; border-bottom: none;
+  border-radius: 7px 7px 0 0;
+  padding: 0.5rem 1rem;
+  font-family: Archivo, sans-serif; font-size: 0.92rem; font-weight: 600;
+  color: var(--ink-soft);
+}
+.pestana:hover:not([aria-selected="true"]) { background: var(--surface-alt); opacity: 1; }
+.pestana[aria-selected="true"] {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+.panel-tabla[hidden] { display: none !important; }
+.opciones-plazas {
+  display: flex; flex-wrap: wrap; gap: 0.65rem 1.1rem;
+  padding: 0.65rem 0 0.2rem; font-size: 0.82rem; color: var(--ink-soft);
+}
+.opciones-plazas label {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-weight: 600; cursor: pointer;
+}
+.opciones-plazas input { accent-color: var(--accent); }
+
+/* --------------------------------------------------- clasificacion real --- */
+.tabla-real { table-layout: fixed; min-width: 780px; }
+.tabla-real .c-pos { width: 44px; }
+.tabla-real .c-equipo { width: 200px; }
+.tabla-real .c-num { width: 46px; }
+.tabla-real .c-goles { width: 62px; }
+.tabla-real .c-pts { width: 54px; }
+.tabla-real .c-forma { width: 132px; }
+.tabla-real .puntos { font-weight: 700; font-size: 0.95rem; }
+.tabla-real .sin-jugar { color: var(--ink-faint); }
+
+.forma { display: flex; gap: 3px; justify-content: flex-end; }
+.forma span {
+  width: 19px; height: 19px; border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.62rem; font-weight: 500;
+  color: var(--accent-ink);
+}
+.forma .G { background: var(--ucl); }
+.forma .E { background: var(--line-strong); color: var(--ink); }
+.forma .P { background: var(--drop); }
+
+/* --------------------------------------------------------------- calor --- */
+/* `table-layout: fixed` mas anchos explicitos: sin eso las columnas de dos
+   cifras (10 a 20) salen mas anchas que las de una y la cabecera deja de
+   cuadrar con las celdas. */
+.calor {
+  border-collapse: separate; border-spacing: 2px; font-size: 0.7rem;
+  table-layout: fixed; min-width: 1030px;
+}
+.calor .c-nombre { width: 178px; }
+.calor .c-puesto { width: 42px; }
+.calor th {
+  position: static; background: none; border: none;
+  padding: 0.25rem 0; font-size: 0.64rem; text-align: center;
+  color: var(--ink-soft);
+}
+.calor td { border: none; padding: 0; }
+.calor tbody tr:hover td { background: none; }
+.celda {
+  height: 24px; display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; font-family: "IBM Plex Mono", monospace; font-size: 0.63rem;
+  color: var(--ink);
+}
+.celda-cero { color: var(--ink-faint); }
+.calor .col-equipo {
+  padding: 0 0.6rem 0 0.55rem; font-size: 0.78rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Llamada a abrir el panel interactivo. Va dentro de la seccion del calendario
+   porque es donde esta mirando quien intenta escribir un marcador. */
+.llamada {
+  display: flex; flex-direction: column; gap: 0.6rem;
+  padding: 1rem 1.15rem;
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent); border-radius: var(--radius);
+  font-size: 0.88rem; color: var(--ink-soft);
+}
+.llamada b { color: var(--ink); }
+.llamada-como {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.8rem;
+  font-size: 0.82rem;
+}
+.llamada-como .o { color: var(--ink-faint); font-size: 0.78rem; }
+.llamada code {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.82em;
+  background: var(--surface-alt); padding: 0.2rem 0.45rem; border-radius: 5px;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------ calendario --- */
+.jornadas {
+  display: flex; flex-wrap: wrap; gap: 3px;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.jornada-btn {
+  min-width: 30px; padding: 0.2rem 0.35rem;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; font-weight: 500;
+  background: transparent; color: var(--ink-soft);
+  border: 1px solid transparent; border-radius: 5px;
+}
+.jornada-btn:hover:not(:disabled) { background: var(--surface-alt); opacity: 1; }
+.jornada-btn[aria-pressed="true"] {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
+/* Una franja inferior dice de un vistazo en que estado esta la jornada. */
+.jornada-btn[data-estado="played"] { box-shadow: inset 0 -3px 0 var(--ink-faint); }
+.jornada-btn[data-estado="scenario"] { box-shadow: inset 0 -3px 0 var(--uel); }
+
+.encuentros { display: flex; flex-direction: column; gap: 2px; min-width: 760px; }
+.encuentro {
+  display: grid;
+  grid-template-columns: 104px 1fr 118px 1fr 156px;
+  align-items: center; gap: 0.6rem;
+  padding: 0.45rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+.encuentro:last-child { border-bottom: none; }
+.encuentro .cuando {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+  color: var(--ink-soft); white-space: nowrap;
+  display: flex; flex-direction: column; line-height: 1.35;
+}
+.encuentro .cuando .hora { color: var(--ink); font-weight: 500; }
+.encuentro .cuando.provisional { color: var(--uel); }
+.encuentro .local { text-align: right; font-weight: 600; font-size: 0.88rem; }
+.encuentro .visita { text-align: left; font-weight: 600; font-size: 0.88rem; }
+.encuentro .local .equipo-con-escudo { justify-content: flex-end; }
+.encuentro .visita .equipo-con-escudo { justify-content: flex-start; }
+.encuentro .nota {
+  font-size: 0.7rem; color: var(--ink-faint);
+  display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem;
+}
+/* Las tres probabilidades con su etiqueta delante. Antes iban como `76/14/9`
+   y se leian como una fecha, que es justo lo que hay al lado. */
+.pronostico {
+  display: flex; gap: 0.5rem;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+  color: var(--ink-soft); white-space: nowrap;
+}
+.pronostico b { color: var(--ink); font-weight: 600; }
+.pronostico .signo { color: var(--ink-faint); }
+.marcador { display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
+.marcador input {
+  width: 40px; padding: 0.25rem 0; text-align: center;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.92rem; font-weight: 600;
+  color: var(--ink); background: var(--ground);
+  border: 1px solid var(--line-strong); border-radius: 5px;
+  /* Sin las flechitas del control numerico: ocupan sitio a la derecha y
+     descentran el numero aunque el texto este centrado. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.marcador input::-webkit-outer-spin-button,
+.marcador input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.marcador input:disabled { background: var(--surface-alt); color: var(--ink-soft); border-style: dashed; }
+/* Las casillas vacias se ven SIEMPRE, tambien en solo lectura: son la unica
+   pista de que ahi va un marcador. Ocultarlas dejaba la fila con un guion
+   suelto y sin forma de adivinar que ese partido era editable en otro modo. */
+.marcador input.vacia-bloqueada { border-style: dotted; opacity: 0.75; }
+.marcador .guion { color: var(--ink-faint); }
+.encuentro-jugado { background: color-mix(in srgb, var(--ink-faint) 8%, transparent); }
+.encuentro-escenario { background: color-mix(in srgb, var(--uel) 12%, transparent); }
+.encuentro-escenario .marcador input { border-color: var(--uel); }
+.borrar {
+  background: transparent; color: var(--ink-faint);
+  border: 1px solid var(--line-strong); padding: 0.15rem 0.45rem;
+  font-size: 0.7rem; border-radius: 5px;
+}
+.borrar:hover:not(:disabled) { color: var(--drop); border-color: var(--drop); opacity: 1; }
+.insignia {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.62rem;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.1rem 0.4rem; border-radius: 4px; white-space: nowrap;
+}
+.insignia-jugado { background: var(--surface-alt); color: var(--ink-soft); }
+.insignia-hipotesis { background: color-mix(in srgb, var(--uel) 25%, transparent); color: var(--ink); }
+
+/* -------------------------------------------------------------- partidos --- */
+.partidos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
+.partido {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 0.8rem 0.9rem;
+  display: flex; flex-direction: column; gap: 0.55rem;
+}
+.partido .fecha {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--ink-faint);
+  display: flex; justify-content: space-between; gap: 0.5rem;
+}
+.provisional { color: var(--uel); }
+.partido .equipos { display: flex; justify-content: space-between; gap: 0.5rem; font-weight: 600; font-size: 0.9rem; }
+.partido .equipos > span { flex: 1 1 0; min-width: 0; }
+.partido .equipos > span:last-child { text-align: right; }
+.partido .equipos > span:last-child .equipo-con-escudo { justify-content: flex-end; }
+.reparto { display: flex; height: 22px; border-radius: 4px; overflow: hidden; font-size: 0.66rem; }
+.reparto span {
+  display: flex; align-items: center; justify-content: center;
+  font-family: "IBM Plex Mono", monospace; color: var(--accent-ink); min-width: 0;
+}
+.reparto .local { background: var(--accent); }
+.reparto .empate { background: var(--line-strong); color: var(--ink); }
+.reparto .visitante { background: color-mix(in srgb, var(--accent) 45%, var(--surface-alt)); color: var(--ink); }
+
+.leyenda { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; font-size: 0.78rem; color: var(--ink-soft); }
+.leyenda span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.punto { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* ------------------------------------------------------------- ficha --- */
+dialog.ficha {
+  width: min(680px, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+}
+dialog.ficha::backdrop { background: rgba(0, 0, 0, 0.45); }
+.ficha-cuerpo { padding: 1.4rem 1.5rem 1.6rem; display: flex; flex-direction: column; gap: 1.25rem; }
+.ficha-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.ficha-cabecera h3 { font-size: 1.35rem; font-weight: 800; }
+.ficha-cerrar {
+  background: transparent; border: 1px solid var(--line-strong); color: var(--ink-soft);
+  width: 30px; height: 30px; border-radius: 6px; padding: 0; font-size: 1.1rem; line-height: 1;
+  flex: none;
+}
+.ficha-cerrar:hover { color: var(--ink); opacity: 1; }
+
+.ficha-vistas {
+  display: inline-flex; align-self: flex-start;
+  border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+  background: var(--surface-alt);
+}
+.ficha-vistas button {
+  border: 0; border-radius: 0; background: transparent; color: var(--ink-soft);
+  padding: 0.42rem 0.7rem; font-size: 0.78rem; font-weight: 700;
+}
+.ficha-vistas button[aria-selected="true"] {
+  background: var(--surface); color: var(--ink);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.ficha-cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 0.85rem; }
+.ficha-cifras > div { display: flex; flex-direction: column; gap: 0.15rem; }
+.ficha-cifras b { font-family: Archivo, sans-serif; font-size: 1.3rem; font-weight: 700; }
+.ficha-cifras .detalle { font-size: 0.75rem; color: var(--ink-soft); }
+.ficha-supuesto {
+  margin-top: -0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* Distribucion de puesto final: una sola serie, un solo color. La banda de
+   clasificacion va como franja lateral, igual que en las tablas, en vez de
+   pintar la barra: asi el color no carga con dos significados a la vez, y de
+   paso se evita el problema de separar verde y ambar para daltonismos. */
+.dist { display: flex; flex-direction: column; gap: 2px; margin-top: 0.5rem; }
+.dist-fila {
+  display: grid; grid-template-columns: 34px 1fr 96px;
+  align-items: center; gap: 0.55rem;
+  padding: 1px 0 1px 0.4rem;
+  border-left: 3px solid transparent;
+  border-radius: 0 3px 3px 0;
+}
+.dist-fila .puesto {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; color: var(--ink-soft);
+  text-align: right;
+}
+.dist-barra { height: 13px; background: var(--surface-alt); border-radius: 3px; }
+.dist-barra i {
+  display: block; height: 100%; min-width: 0;
+  background: var(--accent);
+  border-radius: 3px 4px 4px 3px;
+}
+.dist-fila .veces {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.72rem; text-align: right;
+  color: var(--ink-soft); white-space: nowrap;
+}
+.dist-fila .veces b { color: var(--ink); font-weight: 600; }
+.dist-fila.nunca .veces { color: var(--ink-faint); }
+.dist-fila:hover { background: var(--surface-alt); }
+
+.ficha-europa {
+  border-top: 1px solid var(--line); padding-top: 1rem;
+  display: flex; flex-direction: column; gap: 0.6rem;
+}
+.ficha-rondas { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; }
+.ficha-rondas > span { display: flex; flex-direction: column; }
+.ficha-rondas b { font-family: Archivo, sans-serif; font-size: 1rem; }
+.ficha-proximos {
+  border-top: 1px solid var(--line); padding-top: 1rem;
+  display: flex; flex-direction: column; gap: 0.55rem;
+}
+.ficha-proximo {
+  display: grid; grid-template-columns: minmax(72px, auto) 1fr auto;
+  align-items: center; gap: 0.75rem;
+}
+.ficha-proximo .fecha {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; color: var(--ink-faint);
+}
+.ficha-proximo .rival {
+  min-width: 0; font-weight: 600; font-size: 0.88rem;
+  display: flex; align-items: center; gap: 0.35rem;
+}
+.ficha-proximo .condicion {
+  font-family: "IBM Plex Mono", monospace; font-size: 0.66rem; color: var(--ink-soft);
+}
+.ficha-proximo .probabilidades {
+  display: flex; gap: 0.45rem; justify-content: flex-end;
+  font-family: "IBM Plex Mono", monospace; font-size: 0.68rem; white-space: nowrap;
+}
+.ficha-proximo .probabilidades b { color: var(--ink); font-weight: 700; }
+
+tbody tr[data-equipo] { cursor: pointer; }
+
+.pie-pagina {
+  border-top: 1px solid var(--line); padding-top: 1.25rem;
+  color: var(--ink-soft); font-size: 0.82rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (max-width: 640px) {
+  /* Nada de encoger las celdas ni ocultar su cifra: las tablas tienen su propio
+     desplazamiento horizontal, asi que en pantalla estrecha se arrastran en
+     lugar de perder el dato. */
+  .estado { margin-left: 0; width: 100%; }
+  .envoltura {
+    padding: 1.5rem 0.75rem 3rem;
+    gap: 2rem;
+  }
+  .procedencia { gap: 0.6rem 1.25rem; padding: 0.75rem 0.9rem; }
+  .procedencia b { font-size: 0.95rem; }
+  h1 { font-size: 1.7rem; }
+  .tarjeta { padding: 0.9rem 1rem; }
+  .tarjeta .cifra { font-size: 1.8rem; }
+  .pestana { padding: 0.45rem 0.7rem; font-size: 0.85rem; }
+  /* Aviso de que las tablas anchas se arrastran, que en movil no es obvio. */
+  .marco { position: relative; }
+  .marco::after {
+    content: "→";
+    position: sticky; float: right; right: 0; top: 0;
+    padding: 0.15rem 0.4rem; margin-left: -1.5rem;
+    background: var(--surface-alt); color: var(--ink-faint);
+    font-size: 0.7rem; border-radius: 0 0 0 5px;
+    pointer-events: none;
+  }
+}
+</style>
+
+<div class="envoltura">
+  <header class="cabecera">
+    <div>
+      <div class="etiqueta">Simulador Monte Carlo</div>
+      <div class="titulo-fila">
+        <h1 id="titulo">Probabilidades de LaLiga</h1>
+        <div class="temporada" id="temporada"></div>
+      </div>
+    </div>
+    <div class="procedencia" id="procedencia"></div>
+    <div class="mandos" id="mandos">
+      <label>Simulaciones
+        <input type="number" id="n-sims" min="100" max="200000" step="1000">
+      </label>
+      <button id="regenerar">Regenerar</button>
+      <!-- Descargar datos nuevos exige red y Python: solo cuando hay servidor. -->
+      <button class="secundario" id="actualizar" hidden>Actualizar datos</button>
+      <span class="estado" id="estado"></span>
+      <div class="barra" id="barra" hidden><i></i></div>
+    </div>
+    <div class="aviso" id="aviso-estatico" hidden></div>
+  </header>
+
+  <section class="resumen" id="resumen"></section>
+
+  <section class="seccion" id="seccion-tablas">
+    <div class="pestanas" role="tablist" aria-label="Vista de la tabla">
+      <button class="pestana" id="pestana-proy" role="tab"
+              aria-selected="true" aria-controls="panel-proy">Proyección final</button>
+      <button class="pestana" id="pestana-real" role="tab"
+              aria-selected="false" aria-controls="panel-real">Clasificación actual</button>
+      <!-- Solo aparece cuando hay resultados hipoteticos puestos: sin ellos
+           seria una copia exacta de la clasificacion actual. -->
+      <button class="pestana" id="pestana-sim" role="tab" hidden
+              aria-selected="false" aria-controls="panel-sim">Clasificación simulada</button>
+    </div>
+    <div class="opciones-plazas" id="opciones-plazas" aria-label="Supuestos de plazas europeas">
+      <label><input type="checkbox" id="plaza-extra-europa"> Con plaza extra Europa</label>
+      <label><input type="checkbox" id="plaza-extra-copa"> Con plaza extra Copa</label>
+    </div>
+
+    <div class="panel-tabla" id="panel-real" role="tabpanel" aria-labelledby="pestana-real" hidden>
+      <p class="seccion-intro" id="intro-real"></p>
+      <div class="leyenda" id="leyenda-real"></div>
+      <div class="marco"><table id="tabla-real"></table></div>
+    </div>
+
+    <div class="panel-tabla" id="panel-sim" role="tabpanel" aria-labelledby="pestana-sim" hidden>
+      <p class="seccion-intro" id="intro-sim"></p>
+      <div class="leyenda" id="leyenda-sim"></div>
+      <div class="marco"><table id="tabla-sim"></table></div>
+    </div>
+
+    <div class="panel-tabla" id="panel-proy" role="tabpanel" aria-labelledby="pestana-proy">
+      <p class="seccion-intro" id="intro-tabla"></p>
+      <div class="leyenda" id="leyenda"></div>
+      <div class="marco"><table id="tabla"></table></div>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div>
+      <h2>Dónde acaba cada equipo</h2>
+      <p class="seccion-intro">
+        Cada fila es un equipo y cada columna un puesto final. La cifra es el
+        porcentaje de simulaciones en las que acabó ahí. <b>&lt;1%</b> significa
+        que ocurrió alguna vez pero menos de una de cada cien; <b>0%</b>, que no
+        ocurrió ninguna.
+      </p>
+    </div>
+    <div class="marco"><table class="calor" id="calor"></table></div>
+  </section>
+
+  <section class="seccion" id="seccion-calendario">
+    <div>
+      <h2>Calendario y escenarios</h2>
+      <p class="seccion-intro" id="intro-calendario"></p>
+    </div>
+    <div class="llamada" id="llamada-servidor" hidden>
+      <div>
+        <b>Para poner tus propios resultados, abre el panel interactivo.</b>
+        Esta copia es estática: no hay ningún proceso detrás que pueda simular.
+      </div>
+      <div class="llamada-como">
+        <span>Doble clic en <code>panel.bat</code></span>
+        <span class="o">o bien</span>
+        <code>python -m simliga servidor --temporada <span id="llamada-temporada"></span></code>
+      </div>
+    </div>
+    <div class="jornadas" id="jornadas"></div>
+    <div class="marco"><div class="encuentros" id="encuentros"></div></div>
+    <div class="mandos" id="mandos-escenario">
+      <button id="simular-escenario">Simular con estos resultados</button>
+      <button class="borrar" id="limpiar-escenario">Borrar todos los escenarios</button>
+      <span class="estado" id="estado-escenario"></span>
+    </div>
+  </section>
+
+  <section class="seccion" id="seccion-europa">
+    <div>
+      <h2>Competiciones europeas</h2>
+      <p class="seccion-intro" id="intro-europa"></p>
+    </div>
+    <div id="europa"></div>
+  </section>
+
+  <section class="seccion" id="seccion-partidos">
+    <div>
+      <h2>Próximos partidos</h2>
+      <p class="seccion-intro" id="intro-partidos"></p>
+    </div>
+    <div class="partidos" id="partidos"></div>
+  </section>
+
+  <footer class="pie-pagina" id="pie"></footer>
+</div>
+
+<dialog class="ficha" id="ficha" aria-labelledby="ficha-titulo">
+  <div class="ficha-cuerpo">
+    <div class="ficha-cabecera">
+      <div>
+        <div class="etiqueta" id="ficha-elo"></div>
+        <h3 id="ficha-titulo"></h3>
+      </div>
+      <button class="ficha-cerrar" id="ficha-cerrar" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="ficha-vistas" id="ficha-vistas" role="tablist" aria-label="Escenario de la ficha" hidden>
+      <button type="button" role="tab" data-vista="base" aria-selected="false">Sin escenario aplicado</button>
+      <button type="button" role="tab" data-vista="escenario" aria-selected="true">Con escenario aplicado</button>
+    </div>
+    <div class="ficha-supuesto" id="ficha-supuesto"></div>
+    <div class="ficha-cifras" id="ficha-cifras"></div>
+    <div class="ficha-proximos" id="ficha-proximos"></div>
+    <div>
+      <div class="etiqueta" id="ficha-dist-titulo"></div>
+      <p class="seccion-intro" id="ficha-dist-nota"></p>
+      <div class="dist" id="ficha-dist"></div>
+    </div>
+    <div class="ficha-europa" id="ficha-europa" hidden></div>
+  </div>
+</dialog>
+
+<div hidden>
+</div>
+
+<script id="datos" type="application/json">DATOS_JSON</script>
+<script>MOTOR_JS</script>
+<script>
+(() => {
+  "use strict";
+
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    });
+  }
+
+  let doc = JSON.parse(document.getElementById("datos").textContent);
+  // Lo marca quien genera la pagina, no el protocolo: una copia estatica subida
+  // a cualquier hosting tambien se sirve por http, y activar ahi los botones
+  // solo consigue que fallen contra una API que no existe.
+  const servido = document.querySelector('meta[name="simliga-modo"]')
+    ?.content === "servidor";
+  // El motor en JavaScript simula sin servidor. Solo eso: el ajuste del modelo
+  // sigue siendo cosa de Python y llega ya hecho dentro del JSON.
+  const motor = window.MotorSimLiga || null;
+  // Se puede editar el calendario siempre que haya con que simularlo. Con
+  // servidor las hipotesis se guardan en la base de datos y valen para
+  // cualquier navegador; sin el se guardan en este, que es donde estan.
+  const editable = servido || !!motor;
+  const plazasExtra = { europa: false, copa: false };
+
+  // ------------------------------------------------------------ utilidades
+  const pct = (x, dec = 1) => {
+    if (x >= 0.9995) return "100%";
+    if (x < 1 / doc.simulation.n_sims) return "—";
+    if (x < 0.001) return "<0,1%";
+    return (100 * x).toFixed(dec).replace(".", ",") + "%";
+  };
+  const num = (x, dec = 1) => x.toFixed(dec).replace(".", ",");
+  const puntosProyectados = (x) => String(Math.round(Number(x)));
+  const miles = (x) => x.toLocaleString("es-ES");
+  const el = (tag, cls, html) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html !== undefined) n.innerHTML = html;
+    return n;
+  };
+  const vaciar = (id) => { const n = document.getElementById(id); n.replaceChildren(); return n; };
+  const nombreEquipo = (equipo) =>
+    equipo.display_name || equipo.display_team || equipo.team || equipo.name;
+  function nodoEquipo(equipo, opciones = {}) {
+    const caja = el("span", "equipo-con-escudo");
+    const nombre = el("span", "equipo-nombre", nombreEquipo(equipo));
+    if (equipo.logo) {
+      const img = el("img", "escudo");
+      img.src = equipo.logo;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.onerror = () => img.remove();
+      if (opciones.escudoDespues) caja.append(nombre, img);
+      else caja.append(img, nombre);
+    } else {
+      caja.append(nombre);
+    }
+    return caja;
+  }
+  function celdaEquipo(equipo) {
+    const td = el("td", "col-equipo");
+    td.append(nodoEquipo(equipo));
+    td.title = nombreEquipo(equipo);
+    return td;
+  }
+  function partidosRealesPendientes() {
+    const cal = doc.calendar;
+    if (!cal) return [];
+    const partidos = cal.matchdays.flatMap(b => b.matches.map(m => ({
+      ...m,
+      matchday: b.matchday,
+    }))).filter(m => m.status !== "played");
+    return partidos.sort((a, b) =>
+      (a.date + (a.kickoff_utc || "") + String(a.match_id))
+        .localeCompare(b.date + (b.kickoff_utc || "") + String(b.match_id)));
+  }
+  function partidosDelEquipo(equipo, limite) {
+    return partidosRealesPendientes().filter(m =>
+      m.home_team.team_id === equipo.team_id || m.away_team.team_id === equipo.team_id
+    ).slice(0, limite);
+  }
+  const formatoFecha = new Intl.DateTimeFormat("es-ES",
+    { weekday: "short", day: "numeric", month: "short" });
+  const fechaCorta = (iso) => {
+    const [a, m, d] = iso.split("-").map(Number);
+    return formatoFecha.format(new Date(a, m - 1, d));
+  };
+
+  // La hora se guarda en UTC y se pinta en horario espanol. La conversion se
+  // hace aqui y no en el motor porque el cambio de hora cae a mitad de
+  // temporada, y el navegador ya sabe cuando toca.
+  const formatoHora = new Intl.DateTimeFormat("es-ES",
+    { timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit" });
+  const horaLocal = (isoUtc) => (isoUtc ? formatoHora.format(new Date(isoUtc)) : null);
+
+  const formatoFechaHora = new Intl.DateTimeFormat("es-ES",
+    { timeZone: "Europe/Madrid", weekday: "short", day: "numeric", month: "short" });
+  const fechaLocal = (isoUtc, iso) =>
+    (isoUtc ? formatoFechaHora.format(new Date(isoUtc)) : fechaCorta(iso));
+  const celdaProb = (v) => el("td", v >= 0.5 ? "prob-alta" : v < 0.001 ? "prob-nula" : "", pct(v));
+  const reglasBasePlazas = {
+    ucl: [1, 4],
+    uel: [5, 5],
+    uecl: [6, 6],
+  };
+
+  function reglasClasificacion() {
+    const base = reglasBasePlazas;
+    const relegation = doc.competitions.ESP1.qualification_rules.relegation;
+    const uclHasta = base.ucl[1] + (plazasExtra.europa ? 1 : 0);
+    const uelSlots = (base.uel[1] - base.uel[0] + 1) + (plazasExtra.copa ? 1 : 0);
+    const uelHasta = uclHasta + uelSlots;
+    return {
+      ucl: [1, uclHasta],
+      uel: [uclHasta + 1, uelHasta],
+      uecl: [uelHasta + 1, uelHasta + 1],
+      relegation,
+    };
+  }
+
+  function fraseSupuestoPlazas() {
+    if (plazasExtra.europa && plazasExtra.copa) return "con plaza extra europea y de Copa";
+    if (plazasExtra.europa) return "con plaza extra europea";
+    if (plazasExtra.copa) return "con plaza extra de Copa";
+    return "sin ninguna plaza extra";
+  }
+
+  function notaPlazas() {
+    const reglas = reglasClasificacion();
+    return ` Reparto ${fraseSupuestoPlazas()}: ` +
+      `1º-${reglas.ucl[1]}º Champions, ${reglas.uel[0]}º` +
+      (reglas.uel[0] === reglas.uel[1] ? "" : `-${reglas.uel[1]}º`) +
+      ` Europa League y ${reglas.uecl[0]}º Conference.`;
+  }
+
+  function sumarRango(probs, rango) {
+    if (!rango) return 0;
+    let total = 0;
+    for (let i = rango[0]; i <= rango[1]; i++) total += probs[i - 1] || 0;
+    return total;
+  }
+
+  function outcomesConPlazas(equipo) {
+    const reglas = reglasClasificacion();
+    const probs = equipo.projection.position_probabilities;
+    const ucl = sumarRango(probs, reglas.ucl);
+    const uel = sumarRango(probs, reglas.uel);
+    const uecl = sumarRango(probs, reglas.uecl);
+    return {
+      ...equipo.outcomes,
+      ucl,
+      uel,
+      uecl,
+      european_qualification: ucl + uel + uecl,
+      relegation: sumarRango(probs, reglas.relegation),
+    };
+  }
+
+  // ================================================================ pintar
+  function pintar() {
+    const liga = doc.competitions.ESP1;
+    const reglas = reglasClasificacion();
+    const equipos = liga.teams;
+
+    document.getElementById("titulo").textContent = liga.name;
+    document.getElementById("temporada").textContent = doc.season;
+    document.title = liga.name + " " + doc.season;
+
+    pintarClasificacion();
+    seguro("clasificacion simulada", pintarSimulada);
+
+    // ------------------------------------------------------- procedencia
+    const proc = vaciar("procedencia");
+    for (const [etiqueta, valor] of [
+      ["Datos hasta", doc.as_of.date],
+      ["Jugados", doc.as_of.matches_played],
+      ["Por jugar", doc.as_of.matches_remaining],
+      ["Simulaciones", miles(doc.simulation.n_sims)],
+    ]) {
+      const d = el("div");
+      d.append(el("span", "etiqueta", etiqueta), el("b", null, String(valor)));
+      proc.append(d);
+    }
+
+    // ----------------------------------------------------------- resumen
+    const porTitulo = [...equipos].sort((a, b) => b.outcomes.title - a.outcomes.title);
+    const porDescenso = [...equipos].sort((a, b) =>
+      outcomesConPlazas(b).relegation - outcomesConPlazas(a).relegation);
+    const enDisputa = equipos.filter(t => {
+      const ucl = outcomesConPlazas(t).ucl;
+      return ucl > 0.05 && ucl < 0.95;
+    }).length;
+
+    const resumen = vaciar("resumen");
+    for (const t of [
+      { marca: "var(--accent)", cifra: pct(porTitulo[0].outcomes.title, 0),
+        quien: nombreEquipo(porTitulo[0]), pie: "Favorito al título" },
+      { marca: "var(--ucl)", cifra: String(enDisputa), quien: "equipos en disputa",
+        pie: `Plazas de Champions (puestos ${reglas.ucl[0]}-${reglas.ucl[1]})` },
+      { marca: "var(--drop)", cifra: pct(outcomesConPlazas(porDescenso[0]).relegation, 0),
+        quien: nombreEquipo(porDescenso[0]), pie: "Mayor riesgo de descenso" },
+    ]) {
+      const c = el("div", "tarjeta");
+      c.style.setProperty("--marca", t.marca);
+      c.append(el("div", "cifra", t.cifra), el("div", "quien", t.quien), el("div", "pie", t.pie));
+      resumen.append(c);
+    }
+
+    // ------------------------------------------------------------- tabla
+    const hipotesis = (doc.calendar && doc.calendar.scenario_count) || 0;
+    const reales = liga.matches_played_real ?? liga.matches_played;
+    let texto = reales > 0
+      ? `Cómo se espera que acabe. Los ${reales} partidos jugados cuentan con su resultado real; el resto se simuló ${miles(doc.simulation.n_sims)} veces.`
+      : `Proyección de pretemporada: ${miles(doc.simulation.n_sims)} simulaciones de la temporada completa.`;
+    if (hipotesis) {
+      texto += hipotesis === 1
+        ? " Además hay 1 resultado que has puesto tú, en ámbar: sus puntos cuentan como seguros, pero no es real."
+        : ` Además hay ${hipotesis} resultados que has puesto tú, en ámbar: sus puntos cuentan como seguros, pero no son reales.`;
+    }
+    if (liga.qualification_note) texto += " " + liga.qualification_note;
+    texto += notaPlazas();
+    document.getElementById("intro-tabla").textContent = texto;
+
+    const leyenda = vaciar("leyenda");
+    for (const [texto, color] of [["Champions", "var(--ucl)"], ["Europa League", "var(--uel)"],
+                                  ["Conference", "var(--uecl)"], ["Descenso", "var(--drop)"]]) {
+      const s = el("span");
+      const p = el("span", "punto");
+      p.style.background = color;
+      s.append(p, document.createTextNode(texto));
+      leyenda.append(s);
+    }
+
+    const maxPts = Math.max(...equipos.map(t => t.projection.points.p95));
+    const minPts = Math.min(...equipos.map(t => t.projection.points.p05));
+    const escala = (v) => ((v - minPts) / (maxPts - minPts)) * 100;
+
+    const tabla = vaciar("tabla");
+    tabla.className = "tabla-liga";
+    tabla.innerHTML = `<colgroup>
+        <col class="c-pos"><col class="c-equipo"><col class="c-mini"><col class="c-mini">
+        <col class="c-pts"><col class="c-barra">
+        <col class="c-prob"><col class="c-prob"><col class="c-prob"><col class="c-prob"><col class="c-prob">
+      </colgroup>
+      <thead><tr>
+        <th>#</th><th>Equipo</th><th>J</th><th>Pts</th>
+        <th>Puntos</th><th></th>
+        <th>Título</th><th>Champions</th><th>Europa L.</th><th>Conference</th><th>Descenso</th>
+      </tr></thead>`;
+    const cuerpo = el("tbody");
+    equipos.forEach((t, i) => {
+      const pos = i + 1;
+      const p = t.projection.points;
+      const o = outcomesConPlazas(t);
+      const tr = el("tr");
+      const barra = el("td");
+      barra.innerHTML = `<div class="rango">
+          <div class="via"></div>
+          <div class="tramo" style="left:${escala(p.p05)}%;width:${escala(p.p95) - escala(p.p05)}%"></div>
+          <div class="mediana" style="left:${escala(p.median)}%"></div>
+        </div>`;
+      const hipoteticos = t.current.scenario_matches || 0;
+      const celdaJ = el("td", hipoteticos ? "con-hipotesis" : "", String(t.current.played));
+      const celdaPts = el("td", hipoteticos ? "con-hipotesis" : "", String(t.current.points));
+      if (hipoteticos) {
+        const reales = t.current.played - hipoteticos;
+        const detalle = reales === 0
+          ? (hipoteticos === 1
+              ? "Ese partido es una hipótesis tuya, no un resultado real"
+              : `Esos ${hipoteticos} partidos son hipótesis tuyas, no resultados reales`)
+          : `${reales} jugado(s) de verdad y ${hipoteticos} puesto(s) por ti`;
+        celdaJ.title = detalle;
+        celdaPts.title = detalle;
+      }
+      tr.append(
+        el("td", "col-pos banda " + bandaDe(pos), String(pos)),
+        celdaEquipo(t),
+        celdaJ,
+        celdaPts,
+        el("td", null,
+           `<b>${puntosProyectados(p.mean)}</b><br><span style="color:var(--ink-faint);font-size:0.78em">${puntosProyectados(p.p05)}–${puntosProyectados(p.p95)}</span>`),
+        barra,
+        celdaProb(t.outcomes.title),
+        celdaProb(o.ucl),
+        celdaProb(o.uel),
+        celdaProb(o.uecl),
+        celdaProb(o.relegation),
+      );
+      hacerClicable(tr, t.team_id);
+      cuerpo.append(tr);
+    });
+    tabla.append(cuerpo);
+
+    // ------------------------------------------------------ mapa de calor
+    const calor = vaciar("calor");
+    let grupo = '<colgroup><col class="c-nombre">';
+    let cab = '<thead><tr><th></th>';
+    for (let j = 1; j <= liga.n_teams; j++) {
+      grupo += '<col class="c-puesto">';
+      cab += `<th>${j}</th>`;
+    }
+    calor.innerHTML = grupo + "</colgroup>" + cab + "</tr></thead>";
+
+    // Cada celda lleva su cifra. Se redondea al entero porque en 20x20 no cabe
+    // mas, y lo que esta por debajo del 1% se marca como tal en vez de como
+    // cero: no es lo mismo improbable que imposible.
+    const cifra = (prob) => {
+      if (prob <= 0) return "0%";
+      const v = prob * 100;
+      if (v < 0.5) return "<1%";
+      return Math.round(v) + "%";
+    };
+
+    const cuerpoCalor = el("tbody");
+    for (const t of equipos) {
+      const tr = el("tr");
+      const nombre = celdaEquipo(t);
+      tr.append(nombre);
+      t.projection.position_probabilities.forEach((prob, j) => {
+        const td = el("td");
+        // Raiz cuadrada: sin ella un 4% de ser campeon quedaria visualmente
+        // indistinguible de cero, y no lo es.
+        const alfa = Math.min(Math.sqrt(prob) * 1.15, 1);
+        const c = el("div", "celda" + (prob <= 0 ? " celda-cero" : ""), cifra(prob));
+        c.style.background = `rgba(var(--heat), ${alfa.toFixed(3)})`;
+        if (alfa > 0.55) c.style.color = "var(--accent-ink)";
+        c.title = `${nombreEquipo(t)} · puesto ${j + 1}: ${pct(prob)}`;
+        td.append(c);
+        tr.append(td);
+      });
+      cuerpoCalor.append(tr);
+    }
+    calor.append(cuerpoCalor);
+
+    // Cada seccion se pinta por separado: si una falla en un entorno raro, las
+    // demas siguen en pie y el motivo se ve, en lugar de quedar media pagina en
+    // blanco sin explicacion.
+    seguro("calendario", pintarCalendario);
+    seguro("competiciones europeas", () => pintarEuropa(liga, reglas));
+    seguro("proximos partidos", pintarPartidos);
+    seguro("pie", pintarPie);
+  }
+
+  function seguro(nombre, fn) {
+    try {
+      fn();
+    } catch (err) {
+      console.error("Fallo al pintar " + nombre, err);
+      const aviso = document.getElementById("aviso-estatico");
+      aviso.hidden = false;
+      aviso.style.display = "block";
+      aviso.innerHTML = `<b>No se pudo dibujar la sección «${nombre}».</b> ` +
+        `El resto del panel es correcto. Detalle: <code>${err.message}</code>`;
+    }
+  }
+
+  // -------------------------------------------------------------- pestanas
+  const PESTANAS = { real: "panel-real", sim: "panel-sim", proy: "panel-proy" };
+  // El orden en pantalla, que es el que siguen las flechas. Se salta las
+  // ocultas: una flecha que lleva a una pestaña invisible deja la vista vacia.
+  const ORDEN_PESTANAS = ["proy", "real", "sim"];
+
+  function activarPestana(cual) {
+    for (const [clave, panel] of Object.entries(PESTANAS)) {
+      const activa = clave === cual;
+      document.getElementById("pestana-" + clave).setAttribute(
+        "aria-selected", activa ? "true" : "false");
+      document.getElementById(panel).hidden = !activa;
+    }
+  }
+
+  for (const clave of Object.keys(PESTANAS)) {
+    const boton = document.getElementById("pestana-" + clave);
+    boton.addEventListener("click", () => activarPestana(clave));
+    boton.addEventListener("keydown", (e) => {
+      // Flechas entre pestañas, como se espera de un tablist.
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      e.preventDefault();
+      const visibles = ORDEN_PESTANAS.filter(
+        c => !document.getElementById("pestana-" + c).hidden);
+      const paso = e.key === "ArrowRight" ? 1 : -1;
+      const i = visibles.indexOf(clave);
+      const otra = visibles[(i + paso + visibles.length) % visibles.length];
+      activarPestana(otra);
+      document.getElementById("pestana-" + otra).focus();
+    });
+  }
+
+  // ------------------------------------------------ clasificacion real
+  // El color de la banda lateral de cada puesto. Sale de las reglas del
+  // documento, nunca de posiciones fijas: el numero de plazas de Champions
+  // cambia de un año a otro.
+  function bandaDe(pos) {
+    const reglas = reglasClasificacion();
+    for (const [clave, sufijo] of [["ucl", "ucl"], ["uel", "uel"],
+                                   ["uecl", "uecl"], ["relegation", "drop"]]) {
+      const r = reglas[clave];
+      if (r && pos >= r[0] && pos <= r[1]) return "banda-" + sufijo;
+    }
+    return "";
+  }
+
+  function pintarClasificacion() {
+    const tabla = doc.standings;
+    // Antes de la primera jornada no hay clasificacion que ensenar; una tabla
+    // de ceros no dice nada, asi que se abre directamente en la proyeccion.
+    const hayClasificacion = !!(tabla && tabla.rows.length && tabla.matches_played);
+    document.getElementById("pestana-real").hidden = !hayClasificacion;
+    if (!hayClasificacion) {
+      activarPestana("proy");
+      return;
+    }
+
+    const hipotesis = (doc.calendar && doc.calendar.scenario_count) || 0;
+    document.getElementById("intro-real").textContent =
+      `Cómo está la liga ahora mismo, con los ${tabla.matches_played} partidos ya jugados.` +
+      (hipotesis
+        ? " Aquí no entran tus resultados hipotéticos: para eso está la pestaña de clasificación simulada."
+        : "");
+
+    const leyenda = vaciar("leyenda-real");
+    for (const [texto, color] of [["Champions", "var(--ucl)"], ["Europa League", "var(--uel)"],
+                                  ["Conference", "var(--uecl)"], ["Descenso", "var(--drop)"]]) {
+      const s = el("span");
+      const p = el("span", "punto");
+      p.style.background = color;
+      s.append(p, document.createTextNode(texto));
+      leyenda.append(s);
+    }
+
+    const t = vaciar("tabla-real");
+    t.className = "tabla-real";
+    t.innerHTML = `<colgroup>
+        <col class="c-pos"><col class="c-equipo">
+        <col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num">
+        <col class="c-goles"><col class="c-num"><col class="c-pts"><col class="c-forma">
+      </colgroup>
+      <thead><tr>
+        <th>#</th><th>Equipo</th><th>J</th><th>G</th><th>E</th><th>P</th>
+        <th>Goles</th><th>DG</th><th>Pts</th><th>Forma</th>
+      </tr></thead>`;
+    const cuerpo = el("tbody");
+    for (const f of tabla.rows) {
+      const tr = el("tr", f.played === 0 ? "sin-jugar" : "");
+      const forma = el("td");
+      if (f.form.length) {
+        const caja = el("div", "forma");
+        for (const r of f.form) {
+          const chip = el("span", r, r);
+          chip.title = { G: "Ganado", E: "Empatado", P: "Perdido" }[r];
+          caja.append(chip);
+        }
+        forma.append(caja);
+      }
+      tr.append(
+        el("td", "col-pos banda " + bandaDe(f.position), String(f.position)),
+        celdaEquipo(f),
+        el("td", null, String(f.played)),
+        el("td", null, String(f.won)),
+        el("td", null, String(f.drawn)),
+        el("td", null, String(f.lost)),
+        el("td", null, `${f.goals_for}:${f.goals_against}`),
+        el("td", null, (f.goal_difference > 0 ? "+" : "") + f.goal_difference),
+        el("td", "puntos", String(f.points)),
+        forma,
+      );
+      hacerClicable(tr, f.team);
+      cuerpo.append(tr);
+    }
+    t.append(cuerpo);
+  }
+
+  // ------------------------------------------- clasificacion simulada
+  //
+  // La tabla que sale de contar lo ya jugado MAS los resultados que tu has
+  // puesto. No es una proyeccion: aqui no se simula nada, solo se suman puntos.
+  // Por eso los partidos que siguen pendientes no aparecen por ningun lado, y
+  // los equipos no juegan todos los mismos partidos.
+  //
+  // Se calcula en el navegador y no en Python porque tiene que responder al
+  // instante al editar un marcador, tambien en una copia sin servidor.
+
+  function clasificacionSimulada() {
+    if (!motor || !doc.calendar) return null;
+    const equipos = doc.competitions.ESP1.teams;
+    const n = equipos.length;
+    const indice = new Map(equipos.map((t, i) => [t.team_id, i]));
+    const e = motor.estadoInicial(doc.calendar, indice, n);
+
+    const diferencia = new Int16Array(n);
+    for (let i = 0; i < n; i++) diferencia[i] = e.favor[i] - e.contra[i];
+    // El mismo desempate que usa la simulación y que aplica LaLiga: mini-liga
+    // entre los empatados antes que la diferencia general.
+    const orden = motor.ordenar(new Int32Array(n), e.puntos, diferencia, e.favor,
+                                e.h2hPuntos, e.h2hGoles, n);
+
+    // Puesto real de cada equipo, para poder enseñar cuánto se mueve.
+    const puestoReal = new Map(
+      (doc.standings ? doc.standings.rows : []).map(f => [f.team, f.position]));
+
+    // `Array.from` no es adorno: `orden` es un Int32Array, y el `map` de un
+    // array tipado devuelve otro array tipado, que convierte cada objeto en
+    // NaN sin quejarse.
+    return Array.from(orden).map((i, puesto) => ({
+      position: puesto + 1,
+      team: equipos[i].name,
+      team_id: equipos[i].team_id,
+      display_name: equipos[i].display_name,
+      logo: equipos[i].logo,
+      played: e.jugados[i],
+      hipoteticos: e.hipoteticos[i],
+      won: e.ganados[i], drawn: e.empatados[i], lost: e.perdidos[i],
+      goals_for: e.favor[i], goals_against: e.contra[i],
+      goal_difference: diferencia[i],
+      points: e.puntos[i],
+      forma: e.forma[i].slice(-5).reverse(),
+      // null cuando el equipo no estaba en la tabla real (aún sin jugar nada).
+      movimiento: puestoReal.has(equipos[i].name)
+        ? puestoReal.get(equipos[i].name) - (puesto + 1) : null,
+    }));
+  }
+
+  function pintarSimulada() {
+    const hipotesis = (doc.calendar && doc.calendar.scenario_count) || 0;
+    const filas = hipotesis ? clasificacionSimulada() : null;
+    const pestana = document.getElementById("pestana-sim");
+    pestana.hidden = !filas;
+    if (!filas) {
+      // Si estabas mirándola y borraste la última hipótesis, hay que sacarte:
+      // una pestaña activa y oculta deja la pantalla en blanco.
+      if (pestana.getAttribute("aria-selected") === "true") activarPestana("proy");
+      return;
+    }
+
+    const jugados = filas.reduce((s, f) => s + f.played, 0) / 2;
+    document.getElementById("intro-sim").innerHTML =
+      `Cómo quedaría la tabla contando lo ya jugado <b>y tus ${hipotesis} ` +
+      `${hipotesis === 1 ? "resultado hipotético" : "resultados hipotéticos"}</b>: ` +
+      `${jugados} partidos en total. Aquí no se simula nada, solo se suman puntos, ` +
+      "así que los partidos que siguen pendientes no cuentan y los equipos no " +
+      "llevan todos los mismos. La flecha es lo que se mueve cada equipo respecto " +
+      "a la clasificación real.";
+
+    const leyenda = vaciar("leyenda-sim");
+    for (const [texto, color] of [["Champions", "var(--ucl)"], ["Europa League", "var(--uel)"],
+                                  ["Conference", "var(--uecl)"], ["Descenso", "var(--drop)"]]) {
+      const s = el("span");
+      const p = el("span", "punto");
+      p.style.background = color;
+      s.append(p, document.createTextNode(texto));
+      leyenda.append(s);
+    }
+
+    const t = vaciar("tabla-sim");
+    t.className = "tabla-real";
+    t.innerHTML = `<colgroup>
+        <col class="c-pos"><col class="c-equipo">
+        <col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num">
+        <col class="c-goles"><col class="c-num"><col class="c-pts"><col class="c-forma">
+      </colgroup>
+      <thead><tr>
+        <th>#</th><th>Equipo</th><th>J</th><th>G</th><th>E</th><th>P</th>
+        <th>Goles</th><th>DG</th><th>Pts</th><th>Forma</th>
+      </tr></thead>`;
+    const cuerpo = el("tbody");
+    for (const f of filas) {
+      const tr = el("tr", f.played === 0 ? "sin-jugar" : "");
+
+      const equipo = celdaEquipo(f);
+      if (f.movimiento) {
+        const flecha = el("span", "movimiento " + (f.movimiento > 0 ? "sube" : "baja"),
+                          (f.movimiento > 0 ? "▲" : "▼") + Math.abs(f.movimiento));
+        flecha.title = `${Math.abs(f.movimiento)} ${Math.abs(f.movimiento) === 1
+          ? "puesto" : "puestos"} ${f.movimiento > 0 ? "por encima" : "por debajo"}` +
+          " de donde está en la clasificación real";
+        equipo.append(flecha);
+      }
+
+      const jugados = el("td", null, String(f.played));
+      if (f.hipoteticos) {
+        jugados.classList.add("con-hipotesis");
+        jugados.title = `${f.hipoteticos} de esos ${f.played} son resultados que has ` +
+          "puesto tú";
+      }
+
+      const forma = el("td");
+      if (f.forma.length) {
+        const caja = el("div", "forma");
+        for (const r of f.forma) {
+          const chip = el("span", r.r + (r.hipotesis ? " hipotesis" : ""), r.r);
+          chip.title = { G: "Ganado", E: "Empatado", P: "Perdido" }[r.r]
+            + (r.hipotesis ? " (resultado puesto por ti)" : "");
+          caja.append(chip);
+        }
+        forma.append(caja);
+      }
+
+      tr.append(
+        el("td", "col-pos banda " + bandaDe(f.position), String(f.position)),
+        equipo,
+        jugados,
+        el("td", null, String(f.won)),
+        el("td", null, String(f.drawn)),
+        el("td", null, String(f.lost)),
+        el("td", null, `${f.goals_for}:${f.goals_against}`),
+        el("td", null, (f.goal_difference > 0 ? "+" : "") + f.goal_difference),
+        el("td", "puntos", String(f.points)),
+        forma,
+      );
+      hacerClicable(tr, f.team_id || f.team);
+      cuerpo.append(tr);
+    }
+    t.append(cuerpo);
+  }
+
+  // --------------------------------------------------------- calendario
+  let jornadaVista = null;
+
+  function pintarCalendario() {
+    const cal = doc.calendar;
+    const seccion = document.getElementById("seccion-calendario");
+    if (!cal || !cal.matchdays.length) { seccion.hidden = true; return; }
+    seccion.hidden = false;
+
+    // Al abrir, la jornada util es la primera que aun no se ha jugado entera.
+    if (jornadaVista === null) {
+      const pendiente = cal.matchdays.find(b => b.played < b.matches.length);
+      jornadaVista = (pendiente || cal.matchdays[0]).matchday;
+    }
+
+    const intro = document.getElementById("intro-calendario");
+    const llamada = document.getElementById("llamada-servidor");
+    llamada.hidden = editable;
+    if (!editable) {
+      intro.textContent = "Las casillas de los partidos por jugar son editables, " +
+        "pero solo en el panel interactivo. Aquí se ven como referencia.";
+    } else {
+      intro.innerHTML = cal.scenario_count
+        ? `Tienes <b>${cal.scenario_count}</b> ${cal.scenario_count === 1 ? "resultado hipotético puesto" : "resultados hipotéticos puestos"} a mano. Cuentan como puntos seguros en la simulación, pero no cambian la fuerza de ningún equipo: la pregunta que responden es «si pasa esto, cómo queda la tabla», no «aprende de esto».`
+        : "Pon el resultado que quieras en los partidos por jugar y simula: esos puntos pasan a contar como seguros. Los partidos ya disputados no se pueden tocar.";
+    }
+
+    // --- selector de jornada ---
+    const selector = vaciar("jornadas");
+    for (const bloque of cal.matchdays) {
+      const b = el("button", "jornada-btn", String(bloque.matchday));
+      b.setAttribute("aria-pressed", bloque.matchday === jornadaVista ? "true" : "false");
+      if (bloque.scenario) b.dataset.estado = "scenario";
+      else if (bloque.played === bloque.matches.length) b.dataset.estado = "played";
+      b.title = `Jornada ${bloque.matchday} · ${bloque.date_from}` +
+        (bloque.date_to !== bloque.date_from ? ` a ${bloque.date_to}` : "") +
+        ` · ${bloque.played} jugados, ${bloque.scenario} hipotéticos`;
+      b.addEventListener("click", () => { jornadaVista = bloque.matchday; pintarCalendario(); });
+      selector.append(b);
+    }
+
+    // --- partidos de la jornada elegida ---
+    const bloque = cal.matchdays.find(x => x.matchday === jornadaVista) || cal.matchdays[0];
+    const lista = vaciar("encuentros");
+    lista.classList.toggle("solo-lectura", !editable);
+    for (const m of bloque.matches) {
+      const jugado = m.status === "played";
+      const fila = el("div", "encuentro " +
+        (jugado ? "encuentro-jugado" : m.status === "scenario" ? "encuentro-escenario" : ""));
+
+      const hora = horaLocal(m.kickoff_utc);
+      const cuando = el("div", "cuando" + (m.date_provisional ? " provisional" : ""));
+      cuando.append(el("span", null, fechaLocal(m.kickoff_utc, m.date)));
+      if (hora && !m.date_provisional) cuando.append(el("span", "hora", hora));
+      cuando.title = m.date_provisional
+        ? `${m.date} · día y hora aún sin confirmar por LaLiga`
+        : `${m.date}` + (hora ? ` a las ${hora} (hora española)` : "");
+      fila.append(cuando);
+      const local = el("div", "local");
+      local.append(nodoEquipo(m.home_team, { escudoDespues: true }));
+      fila.append(local);
+
+      const marcador = el("div", "marcador");
+      const entradaLocal = el("input");
+      const entradaVisita = el("input");
+      for (const [entrada, valor] of [[entradaLocal, m.home_goals], [entradaVisita, m.away_goals]]) {
+        entrada.type = "number";
+        entrada.min = "0";
+        entrada.max = "20";
+        entrada.value = valor === null ? "" : valor;
+        entrada.disabled = jugado || !editable;
+        if (entrada.disabled && entrada.value === "") entrada.classList.add("vacia-bloqueada");
+        entrada.setAttribute("aria-label",
+          `${nombreEquipo(m.home_team)} contra ${nombreEquipo(m.away_team)}`);
+      }
+      marcador.append(entradaLocal, el("span", "guion", "–"), entradaVisita);
+      fila.append(marcador);
+      const visita = el("div", "visita");
+      visita.append(nodoEquipo(m.away_team));
+      fila.append(visita);
+
+      const extremo = el("div", "nota");
+      if (jugado) {
+        extremo.append(el("span", "insignia insignia-jugado", "jugado"));
+      } else if (m.status === "scenario") {
+        if (editable) {
+          const quitar = el("button", "borrar", "quitar");
+          quitar.addEventListener("click", () => guardarEscenario(m.match_id, null, null));
+          extremo.append(quitar);
+        } else {
+          extremo.append(el("span", "insignia insignia-hipotesis", "hipótesis"));
+        }
+      } else if (m.probabilities) {
+        const p = m.probabilities;
+        const pron = el("div", "pronostico");
+        for (const [signo, valor] of [["1", p.home], ["X", p.draw], ["2", p.away]]) {
+          const trozo = el("span");
+          trozo.append(el("span", "signo", signo + " "),
+                       el("b", null, Math.round(valor * 100) + "%"));
+          pron.append(trozo);
+        }
+        pron.title = "Probabilidad del modelo: 1 local, X empate, 2 visitante";
+        extremo.append(pron);
+      }
+      fila.append(extremo);
+
+      if (!jugado && editable) {
+        const enviar = () => {
+          const l = entradaLocal.value, v = entradaVisita.value;
+          if (l === "" || v === "") {
+            if (m.status === "scenario") guardarEscenario(m.match_id, null, null);
+            return;
+          }
+          guardarEscenario(m.match_id, parseInt(l, 10), parseInt(v, 10));
+        };
+        entradaLocal.addEventListener("change", enviar);
+        entradaVisita.addEventListener("change", enviar);
+      }
+      lista.append(fila);
+    }
+
+    const temporadaLlamada = document.getElementById("llamada-temporada");
+    if (temporadaLlamada) temporadaLlamada.textContent = doc.season;
+    document.getElementById("simular-escenario").disabled = !editable;
+    document.getElementById("limpiar-escenario").disabled = !editable || !cal.scenario_count;
+    document.getElementById("mandos-escenario").hidden = !editable;
+  }
+
+  // ------------------------------------------------------------ escenarios
+  //
+  // Donde viven las hipotesis depende de quien sirva la pagina. Con servidor,
+  // en la base de datos: las comparte con la linea de comandos y con cualquier
+  // otro navegador que abra el panel. Sin servidor, en este navegador, que es
+  // lo unico que hay; se pierden al borrar los datos del sitio, y por eso el
+  // pie lo dice en vez de dejar que te enteres el dia que desaparezcan.
+  const almacen = {
+    clave: "simliga:escenarios:" + doc.season,
+    leer() {
+      try { return JSON.parse(localStorage.getItem(this.clave)) || {}; }
+      catch (e) { return {}; }
+    },
+    escribir(mapa) {
+      try { localStorage.setItem(this.clave, JSON.stringify(mapa)); }
+      catch (e) { /* navegacion privada o cuota llena: solo deja de recordarlas */ }
+    },
+  };
+
+  function recontarEscenarios() {
+    const cal = doc.calendar;
+    if (!cal) return;
+    for (const b of cal.matchdays) {
+      b.scenario = b.matches.filter(m => m.status === "scenario").length;
+    }
+    cal.scenario_count = cal.matchdays.reduce((s, b) => s + b.scenario, 0);
+  }
+
+  /** Vuelca sobre el calendario las hipotesis guardadas en este navegador. */
+  function aplicarEscenarioGuardado() {
+    if (servido || !doc.calendar) return;      // con servidor ya vienen puestas
+    const guardadas = almacen.leer();
+    for (const b of doc.calendar.matchdays) {
+      for (const m of b.matches) {
+        if (m.status === "played") continue;
+        const r = guardadas[m.match_id];
+        if (r) { m.status = "scenario"; m.home_goals = r[0]; m.away_goals = r[1]; }
+        else { m.status = "pending"; m.home_goals = null; m.away_goals = null; }
+      }
+    }
+    recontarEscenarios();
+    escenarioTocadoEnNavegador = !!doc.calendar.scenario_count;
+    invalidarFichaCache();
+  }
+
+  async function guardarEscenario(matchId, local, visitante) {
+    const estado = document.getElementById("estado-escenario");
+    try {
+      if (servido) {
+        const resp = await fetch("/api/escenario", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ match_id: matchId, home_goals: local, away_goals: visitante }),
+        });
+        const cuerpo = await resp.json();
+        if (!resp.ok) throw new Error(cuerpo.error || "Error " + resp.status);
+      } else {
+        const mapa = almacen.leer();
+        if (local === null) delete mapa[matchId];
+        else mapa[matchId] = [local, visitante];
+        almacen.escribir(mapa);
+      }
+      // Refleja el cambio sin volver a simular: los numeros de la tabla siguen
+      // siendo los de antes, y decirlo es mas honesto que fingir que no.
+      for (const b of doc.calendar.matchdays) {
+        for (const m of b.matches) {
+          if (m.match_id !== matchId) continue;
+          m.status = local === null ? "pending" : "scenario";
+          m.home_goals = local;
+          m.away_goals = visitante;
+        }
+      }
+      recontarEscenarios();
+      escenarioTocadoEnNavegador = true;
+      invalidarFichaCache();
+      pintarCalendario();
+      // La tabla simulada se rehace al momento: es lo unico que no necesita
+      // volver a simular, porque solo suma puntos que ya estan puestos.
+      seguro("clasificacion simulada", pintarSimulada);
+      estado.dataset.tipo = "ok";
+      // Se nombra la pestaña a proposito: es la unica parte del panel que ya
+      // refleja el cambio, y sin decirlo no hay forma de saber que esta ahi.
+      if (local === null && !doc.calendar.scenario_count) {
+        estado.textContent = "Hipótesis quitada. Ya no queda ninguna clasificación simulada; " +
+          "pulsa «Simular» para rehacer la proyección sin escenarios.";
+      } else {
+        estado.textContent = local === null
+          ? "Hipótesis quitada. La tabla está en «Clasificación simulada»; "
+            + "pulsa «Simular» para rehacer la proyección."
+          : "Guardado. Ya cuenta en «Clasificación simulada»; "
+            + "pulsa «Simular» para rehacer la proyección.";
+      }
+    } catch (err) {
+      estado.dataset.tipo = "error";
+      estado.textContent = err.message;
+    }
+  }
+
+  // ------------------------------------------------------------- Europa
+  function pintarEuropa(liga, reglas) {
+    const contenedor = vaciar("europa");
+    const intro = document.getElementById("intro-europa");
+    const europeas = Object.values(doc.competitions).filter(c => c.type === "uefa_league_phase");
+    const clasificados = doc.european_qualification;
+
+    if (!europeas.length) {
+      intro.textContent = "Todavía no hay datos para proyectar las competiciones europeas.";
+      if (clasificados) contenedor.append(tablaClasificados(clasificados));
+      return;
+    }
+
+    const provisionales = europeas.filter(c => c.provisional).length;
+    intro.textContent = provisionales
+      ? "Proyección provisional: el sorteo aún no está publicado, así que el campo rival es una estimación (ver detalle bajo cada competición). Los equipos españoles van resaltados."
+      : "Posición esperada en la liguilla y probabilidad de alcanzar cada ronda. Los equipos españoles van resaltados.";
+
+    if (clasificados) contenedor.append(tablaClasificados(clasificados));
+
+    for (const comp of europeas) {
+      const bloque = el("div", "seccion");
+      bloque.style.marginTop = "1.75rem";
+      const h = el("h3");
+      h.style.fontFamily = "Archivo, sans-serif";
+      h.style.fontSize = "1rem";
+      h.textContent = comp.name;
+      bloque.append(h);
+
+      if (comp.provisional) {
+        const nota = el("div", "aviso");
+        nota.style.borderLeftColor = "var(--uel)";
+        nota.innerHTML = `<b>Cifras orientativas.</b> ${comp.provisional.reason} ` +
+          `${comp.provisional.method}` +
+          (comp.provisional.caveat ? ` ${comp.provisional.caveat}` : "") +
+          ` En cuanto salga el sorteo real, esto se sustituye por la simulación ` +
+          `del torneo de verdad.`;
+        bloque.append(nota);
+      }
+
+      bloque.append(el("p", "seccion-intro",
+        `Liguilla de ${comp.n_teams}. Del ${comp.qualification_rules.direct_to_r16[0]} al ` +
+        `${comp.qualification_rules.direct_to_r16[1]} pasan directos a octavos; del ` +
+        `${comp.qualification_rules.playoff[0]} al ${comp.qualification_rules.playoff[1]}, al playoff; ` +
+        `del ${comp.qualification_rules.eliminated[0]} en adelante, eliminados.`));
+
+      // Con campo estimado solo se muestran los espanoles: los demas son un
+      // relleno plausible y darles una tabla entera seria darles una precision
+      // que no tienen.
+      const filas = comp.provisional
+        ? comp.teams.filter(t => t.country === "ESP")
+        : comp.teams;
+
+      // Enseñar 5 filas de 36 invita a pensar que los porcentajes deberian
+      // sumar 100 entre ellas. Se dice cuanto suman y sobre cuantos equipos,
+      // que es la unica forma de que la cifra se lea bien.
+      if (comp.provisional) {
+        const titulo = filas.reduce((s, t) => s + t.stage_probabilities.winner, 0);
+        const octavos = filas.reduce((s, t) => s + t.stage_probabilities.round_of_16, 0);
+        const uno = filas.length === 1;
+        bloque.append(el("p", "seccion-intro",
+          (uno ? "Se muestra el único equipo español" : `Se muestran los ${filas.length} equipos españoles`) +
+          ` de los ${comp.n_teams} participantes. Entre los ${comp.n_teams}, las ` +
+          `probabilidades de título suman 100% y las de octavos suman 16 plazas; ` +
+          (uno ? "este se lleva " : `estos ${filas.length} se llevan `) +
+          `${pct(titulo, 1)} del título y ${num(octavos, 1)} de esas plazas.`));
+      }
+
+      const marco = el("div", "marco");
+      const tb = el("table");
+      tb.innerHTML = `<thead><tr>
+          <th>#</th><th>Equipo</th><th>Puesto esperado</th><th>Pts</th>
+          <th>Directo a 8vos</th><th>Eliminado</th>
+          <th>Octavos</th><th>Cuartos</th><th>Semis</th><th>Final</th><th>Título</th>
+        </tr></thead>`;
+      const cu = el("tbody");
+      comp.teams.forEach((t, i) => {
+        if (!filas.includes(t)) return;
+        const f = t.stage_probabilities;
+        const lp = t.league_phase;
+        const tr = el("tr", t.country === "ESP" ? "fila-esp" : "");
+        const equipo = celdaEquipo(t);
+        equipo.append(el("span", null,
+          ` ${t.country}`));
+        equipo.lastElementChild.style.color = "var(--ink-faint)";
+        equipo.lastElementChild.style.fontWeight = "400";
+        tr.append(
+          el("td", "col-pos", comp.provisional ? "—" : String(i + 1)),
+          equipo,
+          el("td", null, `<b>${num(lp.expected_position)}</b>`),
+          el("td", null, num(lp.expected_points)),
+          celdaProb(lp.p_direct_to_r16), celdaProb(lp.p_eliminated),
+          celdaProb(f.round_of_16), celdaProb(f.quarter_finals),
+          celdaProb(f.semi_finals), celdaProb(f.final), celdaProb(f.winner),
+        );
+        cu.append(tr);
+      });
+      tb.append(cu);
+      marco.append(tb);
+      bloque.append(marco);
+      contenedor.append(bloque);
+    }
+  }
+
+  function tablaClasificados(clasificados) {
+    const caja = el("div", "seccion");
+    caja.append(el("p", "seccion-intro",
+      `Plazas europeas según la clasificación final de LaLiga ${clasificados.source_season}. ` +
+      clasificados.caveat));
+    const marco = el("div", "marco");
+    const tb = el("table");
+    tb.innerHTML = `<thead><tr>
+        <th>Puesto ${clasificados.source_season}</th><th>Equipo</th>
+        <th>Pts</th><th>Competición</th></tr></thead>`;
+    const cu = el("tbody");
+    for (const t of clasificados.teams) {
+      const tr = el("tr");
+      const porCopa = t.via === "copa";
+      const equipo = celdaEquipo(t);
+      if (porCopa) {
+        equipo.append(el("span", "insignia insignia-hipotesis", "campeón de Copa"));
+      }
+      tr.append(
+        el("td", "col-pos", porCopa ? "Copa" : String(t.previous_position)),
+        equipo,
+        el("td", null, t.previous_points === null ? "—" : String(t.previous_points)),
+        el("td", null, t.competition_name),
+      );
+      cu.append(tr);
+    }
+    tb.append(cu);
+    marco.append(tb);
+    caja.append(marco);
+    return caja;
+  }
+
+  // ----------------------------------------------------------- partidos
+  function pintarPartidos() {
+    const contenedor = vaciar("partidos");
+    const seccion = document.getElementById("seccion-partidos");
+    if (!doc.fixtures.length) { seccion.hidden = true; return; }
+    seccion.hidden = false;
+
+    const provisionales = doc.fixtures.filter(m => m.date_provisional).length;
+    document.getElementById("intro-partidos").innerHTML = provisionales
+      ? "Probabilidad de victoria local, empate y visitante. Las marcadas <span class=\"provisional\">provisional</span> aún no tienen día y hora confirmados por LaLiga."
+      : "Probabilidad de victoria local, empate y visitante. Horarios en hora española.";
+
+    for (const m of doc.fixtures.slice(0, 20)) {
+      const p = m.probabilities;
+      const card = el("div", "partido");
+      const hora = horaLocal(m.kickoff_utc);
+      const fecha = el("div", "fecha");
+      fecha.append(el("span", null,
+        fechaLocal(m.kickoff_utc, m.date) + (hora ? ` · ${hora}` : "") +
+        (m.matchday ? ` · J${m.matchday}` : "")));
+      if (m.date_provisional) fecha.append(el("span", "provisional", "provisional"));
+      card.append(fecha);
+
+      const eq = el("div", "equipos");
+      const local = el("span");
+      local.append(nodoEquipo(m.home_team));
+      const visita = el("span");
+      visita.append(nodoEquipo(m.away_team));
+      eq.append(local, visita);
+      card.append(eq);
+
+      const rep = el("div", "reparto");
+      for (const [clase, v] of [["local", p.home], ["empate", p.draw], ["visitante", p.away]]) {
+        const s = el("span", clase, v >= 0.12 ? Math.round(v * 100) + "%" : "");
+        s.style.flex = String(v);
+        rep.append(s);
+      }
+      card.append(rep);
+      card.append(el("div", "fecha",
+        `<span>Goles esperados ${num(m.expected_goals.home)} – ${num(m.expected_goals.away)}</span>`));
+      contenedor.append(card);
+    }
+  }
+
+  // ------------------------------------------------------- ficha de equipo
+  const dialogo = document.getElementById("ficha");
+  document.getElementById("ficha-cerrar").addEventListener("click", () => dialogo.close());
+  dialogo.addEventListener("click", (e) => {
+    // Clic en el fondo (fuera del cuerpo) cierra, como se espera de un dialogo.
+    if (e.target === dialogo) dialogo.close();
+  });
+  document.getElementById("ficha-vistas").addEventListener("click", (e) => {
+    const boton = e.target.closest("button[data-vista]");
+    if (boton) cambiarVistaFicha(boton.dataset.vista);
+  });
+
+  let fichaRef = null;
+  let fichaVista = "escenario";
+  let escenarioTocadoEnNavegador = false;
+  const fichaCache = {
+    base: { clave: null, promesa: null },
+    escenario: { clave: null, promesa: null },
+  };
+
+  function escenariosActivos() {
+    return !!(doc.calendar && doc.calendar.scenario_count);
+  }
+
+  function claveFicha(modo) {
+    const escenarios = [];
+    if (doc.calendar) {
+      for (const bloque of doc.calendar.matchdays) {
+        for (const m of bloque.matches) {
+          if (m.status === "scenario") {
+            escenarios.push([m.match_id, m.home_goals, m.away_goals]);
+          }
+        }
+      }
+    }
+    return JSON.stringify({
+      modo,
+      temporada: doc.season,
+      generado: doc.generated_at,
+      asOf: doc.as_of && doc.as_of.date,
+      sims: doc.simulation && doc.simulation.n_sims,
+      seed: doc.simulation && doc.simulation.seed,
+      escenarios,
+    });
+  }
+
+  function invalidarFichaCache() {
+    fichaCache.base.clave = fichaCache.base.promesa = null;
+    fichaCache.escenario.clave = fichaCache.escenario.promesa = null;
+  }
+
+  function copiaParaFicha(modo) {
+    const copia = JSON.parse(JSON.stringify(doc));
+    if (modo !== "base" || !copia.calendar) return copia;
+    for (const bloque of copia.calendar.matchdays) {
+      bloque.scenario = 0;
+      for (const m of bloque.matches) {
+        if (m.status === "scenario") {
+          m.status = "pending";
+          m.home_goals = null;
+          m.away_goals = null;
+        }
+      }
+    }
+    copia.calendar.scenario_count = 0;
+    return copia;
+  }
+
+  function escenarioYaIntegradoEnLiga() {
+    if (!escenariosActivos()) return false;
+    const liga = doc.competitions.ESP1;
+    const contados = liga.teams.reduce((s, t) => s + (t.current.scenario_matches || 0), 0);
+    return contados === doc.calendar.scenario_count * 2;
+  }
+
+  async function ligaParaFicha(modo) {
+    if (!escenariosActivos() || !motor) return doc.competitions.ESP1;
+    if (modo === "escenario" && !escenarioTocadoEnNavegador && escenarioYaIntegradoEnLiga()) {
+      return doc.competitions.ESP1;
+    }
+
+    const cache = fichaCache[modo];
+    const clave = claveFicha(modo);
+    if (cache.clave !== clave || !cache.promesa) {
+      cache.clave = clave;
+      const copia = copiaParaFicha(modo);
+      cache.promesa = motor.simular(copia, doc.simulation.n_sims);
+    }
+    return await cache.promesa;
+  }
+
+  function buscarEquipoEnLiga(liga, ref) {
+    return typeof ref === "number"
+      ? liga.teams.find(t => t.team_id === ref)
+      : liga.teams.find(t => t.name === ref || nombreEquipo(t) === ref);
+  }
+
+  function actualizarTabsFicha() {
+    const tabs = document.getElementById("ficha-vistas");
+    const visible = escenariosActivos() && !!motor;
+    tabs.hidden = !visible;
+    for (const b of tabs.querySelectorAll("button[data-vista]")) {
+      b.setAttribute("aria-selected", String(b.dataset.vista === fichaVista));
+    }
+  }
+
+  function fichaCargando(texto) {
+    const cifras = vaciar("ficha-cifras");
+    const d = el("div");
+    d.append(el("span", "etiqueta", "Calculando"), el("b", null, texto));
+    cifras.append(d);
+    document.getElementById("ficha-dist-titulo").textContent = "";
+    document.getElementById("ficha-dist-nota").textContent = "";
+    vaciar("ficha-dist");
+  }
+
+  function pintarProximosFicha(equipo) {
+    const proximos = vaciar("ficha-proximos");
+    const partidos = partidosDelEquipo(equipo, 5);
+    if (!partidos.length) {
+      proximos.hidden = true;
+      return;
+    }
+
+    proximos.hidden = false;
+    proximos.append(el("div", "etiqueta", "Siguientes 5 partidos"));
+    for (const m of partidos) {
+      const esLocal = m.home_team.team_id === equipo.team_id;
+      const rival = esLocal ? m.away_team : m.home_team;
+      const p = m.probabilities;
+      const ganar = esLocal ? p.home : p.away;
+      const empatar = p.draw;
+      const perder = esLocal ? p.away : p.home;
+      const hora = horaLocal(m.kickoff_utc);
+      const fila = el("div", "ficha-proximo");
+      fila.append(el("div", "fecha",
+        fechaLocal(m.kickoff_utc, m.date) + (hora ? ` · ${hora}` : "")));
+
+      const rivalCaja = el("div", "rival");
+      rivalCaja.append(el("span", "condicion", esLocal ? "vs" : "en"), nodoEquipo(rival));
+      fila.append(rivalCaja);
+
+      const probs = el("div", "probabilidades");
+      for (const [etiqueta, valor] of [["G", ganar], ["E", empatar], ["P", perder]]) {
+        const s = el("span");
+        s.append(document.createTextNode(etiqueta + " "), el("b", null, Math.round(valor * 100) + "%"));
+        probs.append(s);
+      }
+      probs.title = "Probabilidad del equipo: ganar, empatar, perder";
+      fila.append(probs);
+      proximos.append(fila);
+    }
+  }
+
+  function pintarEuropaFicha(equipo) {
+    const caja = document.getElementById("ficha-europa");
+    caja.replaceChildren();
+    const enEuropa = Object.values(doc.competitions)
+      .filter(c => c.type === "uefa_league_phase")
+      .map(c => ({ comp: c, equipo: c.teams.find(t =>
+        t.team_id === equipo.team_id || t.name === equipo.name) }))
+      .find(x => x.equipo);
+
+    if (!enEuropa) {
+      caja.hidden = true;
+      return;
+    }
+
+    caja.hidden = false;
+    caja.append(el("div", "etiqueta", enEuropa.comp.name +
+      (enEuropa.comp.provisional ? " · proyección provisional" : "")));
+    const f = enEuropa.equipo.stage_probabilities;
+    const rondas = el("div", "ficha-rondas");
+    for (const [texto, valor] of [
+      ["Directo a 8vos", enEuropa.equipo.league_phase.p_direct_to_r16],
+      ["Octavos", f.round_of_16], ["Cuartos", f.quarter_finals],
+      ["Semis", f.semi_finals], ["Final", f.final], ["Título", f.winner],
+    ]) {
+      const s = el("span");
+      s.append(el("span", "etiqueta", texto), el("b", null, pct(valor)));
+      rondas.append(s);
+    }
+    caja.append(rondas);
+  }
+
+  function pintarDatosFicha(ligaFicha, ref) {
+    const liga = doc.competitions.ESP1;
+    const equipo = buscarEquipoEnLiga(ligaFicha, ref);
+    if (!equipo) return;
+
+    const reglas = reglasClasificacion();
+    const bandaDe = (pos) => {
+      for (const [clave, sufijo] of [["ucl", "ucl"], ["uel", "uel"],
+                                     ["uecl", "uecl"], ["relegation", "drop"]]) {
+        const r = reglas[clave];
+        if (r && pos >= r[0] && pos <= r[1]) return "banda-" + sufijo;
+      }
+      return "";
+    };
+
+    const p = equipo.projection.points;
+    const o = outcomesConPlazas(equipo);
+    const puestoEnTabla = ligaFicha.teams.findIndex(t => t.team_id === equipo.team_id) + 1;
+    document.getElementById("ficha-supuesto").textContent =
+      "Reparto europeo: " + fraseSupuestoPlazas() + ".";
+    const cifras = vaciar("ficha-cifras");
+    const actual = equipo.current;
+    for (const [etiqueta, valor, detalle] of [
+      ["Ahora", `${actual.points} pt`,
+       `${actual.played} jugado(s)`],
+      ["Puntos al final", puntosProyectados(p.mean),
+       `entre ${puntosProyectados(p.p05)} y ${puntosProyectados(p.p95)}`],
+      ["Puesto esperado", `${puestoEnTabla}º`,
+       `más repetido: ${equipo.projection.position.mode}º`],
+      ["Título", pct(equipo.outcomes.title), ""],
+      ["Champions", pct(o.ucl), ""],
+      ["Europa League", pct(o.uel), ""],
+      ["Conference", pct(o.uecl), ""],
+      ["Descenso", pct(o.relegation), ""],
+    ]) {
+      const d = el("div");
+      d.append(el("span", "etiqueta", etiqueta), el("b", null, valor));
+      if (detalle) d.append(el("span", "detalle", detalle));
+      cifras.append(d);
+    }
+
+    // --- distribucion de puesto final ---
+    const total = doc.simulation.n_sims;
+    const probs = equipo.projection.position_probabilities;
+    const veces = probs.map(x => Math.round(x * total));
+    const maximo = Math.max(...veces);
+
+    document.getElementById("ficha-dist-titulo").textContent =
+      "Cuántas veces acabó en cada puesto";
+    document.getElementById("ficha-dist-nota").textContent =
+      `Sobre ${miles(total)} simulaciones de la temporada.`;
+
+    const dist = vaciar("ficha-dist");
+    veces.forEach((n, i) => {
+      const puesto = i + 1;
+      const fila = el("div", "dist-fila " + bandaDe(puesto) + (n === 0 ? " nunca" : ""));
+      fila.append(el("div", "puesto", puesto + "º"));
+
+      const barra = el("div", "dist-barra");
+      const relleno = el("i");
+      relleno.style.width = maximo ? `${(n / maximo) * 100}%` : "0";
+      barra.append(relleno);
+      fila.append(barra);
+
+      const texto = el("div", "veces");
+      texto.innerHTML = n === 0 ? "nunca" : `<b>${miles(n)}</b> · ${pct(probs[i], 1)}`;
+      fila.append(texto);
+      fila.title = `${nombreEquipo(equipo)}, ${puesto}º: ${miles(n)} de ${miles(total)} (${pct(probs[i])})`;
+      dist.append(fila);
+    });
+  }
+
+  async function cambiarVistaFicha(vista) {
+    fichaVista = vista;
+    actualizarTabsFicha();
+    fichaCargando(vista === "base" ? "sin escenario..." : "con escenario...");
+    const ref = fichaRef;
+    const liga = await ligaParaFicha(vista);
+    if (ref !== fichaRef || vista !== fichaVista) return;
+    pintarDatosFicha(liga, ref);
+  }
+
+  function abrirFicha(ref) {
+    const liga = doc.competitions.ESP1;
+    const equipo = buscarEquipoEnLiga(liga, ref);
+    if (!equipo) return;
+
+    fichaRef = equipo.team_id;
+    fichaVista = escenariosActivos() && motor ? "escenario" : "escenario";
+    actualizarTabsFicha();
+
+    document.getElementById("ficha-titulo").replaceChildren(nodoEquipo(equipo));
+    document.getElementById("ficha-elo").textContent =
+      `Elo ${equipo.ratings.elo} · ataque ${num(equipo.ratings.attack, 2)} · ` +
+      `defensa ${num(equipo.ratings.defence, 2)}`;
+    pintarProximosFicha(equipo);
+    pintarEuropaFicha(equipo);
+
+    dialogo.showModal();
+    cambiarVistaFicha(fichaVista);
+  }
+
+  function hacerClicable(tr, ref) {
+    const liga = doc.competitions.ESP1;
+    const equipo = typeof ref === "number"
+      ? liga.teams.find(t => t.team_id === ref)
+      : liga.teams.find(t => t.name === ref || nombreEquipo(t) === ref);
+    const nombre = equipo ? nombreEquipo(equipo) : String(ref);
+    tr.dataset.equipo = nombre;
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.title = `Ver la ficha de ${nombre}`;
+    tr.addEventListener("click", () => abrirFicha(ref));
+    tr.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirFicha(ref); }
+    });
+  }
+
+  function pintarPie() {
+    const pie = vaciar("pie");
+    const m = doc.model;
+    pie.append(el("p", null,
+      `Modelo Dixon-Coles con ratings Elo. Ventaja de campo ×${Math.exp(m.dixon_coles.home_advantage).toFixed(2)}, ` +
+      `ajustado sobre ${miles(m.dixon_coles.fitted_on_matches)} partidos.`));
+    pie.append(el("p", null,
+      `Un 30% no es un fallo si no ocurre: el modelo está calibrado, así que de las cosas ` +
+      `a las que da un 30% ocurre aproximadamente el 30%. Generado el ` +
+      `${doc.generated_at.slice(0, 10)} · esquema ${doc.schema_version}.`));
+    pie.append(el("p", "etiqueta", doc.meta.data_sources.join(" · ")));
+  }
+
+  // =============================================================== mandos
+  const entradaSims = document.getElementById("n-sims");
+  const boton = document.getElementById("regenerar");
+  const botonActualizar = document.getElementById("actualizar");
+  const estado = document.getElementById("estado");
+  const barra = document.getElementById("barra");
+  entradaSims.value = doc.simulation.n_sims;
+
+  // Simular en el navegador es barato; descargar datos nuevos no lo es y ademas
+  // necesita Python. De ahi el tope mas bajo sin servidor: 200.000 temporadas
+  // en un movil son minutos, y un boton que parece colgado es peor que uno que
+  // no llega tan lejos.
+  const TOPE_SIMS = servido ? 200000 : 100000;
+  entradaSims.max = TOPE_SIMS;
+  document.getElementById("actualizar").hidden = !servido;
+
+  function avance(fraccion) {
+    barra.hidden = false;
+    barra.firstElementChild.style.width = (fraccion * 100).toFixed(1) + "%";
+  }
+
+  function cuantas() {
+    const n = Math.max(100, Math.min(parseInt(entradaSims.value, 10) || 20000, TOPE_SIMS));
+    entradaSims.value = n;
+    return n;
+  }
+
+  /** Simula aqui mismo, con el motor incrustado en la pagina. */
+  async function simularAqui(salida) {
+    const n = cuantas();
+    salida.dataset.tipo = "";
+    salida.textContent = `Simulando ${miles(n)} temporadas aquí mismo…`;
+    avance(0);
+    // Un respiro antes de arrancar para que el mensaje llegue a pintarse: si no,
+    // el navegador se mete en el bucle sin haber ensenado que ha empezado.
+    await new Promise(r => setTimeout(r, 30));
+
+    const t0 = performance.now();
+    try {
+      const bloque = await motor.simular(doc, n, avance);
+      doc.competitions.ESP1 = bloque;
+      doc.simulation.n_sims = n;
+      doc.as_of.matches_played = bloque.matches_played;
+      doc.as_of.matches_remaining = bloque.matches_remaining;
+      escenarioTocadoEnNavegador = false;
+      invalidarFichaCache();
+      pintar();
+      salida.dataset.tipo = "ok";
+      salida.textContent = `Listo en ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+    } finally {
+      barra.hidden = true;
+    }
+  }
+
+  /** Pide la simulacion al servidor; con `refrescar`, descargando datos antes. */
+  async function simularEnServidor(refrescar, salida) {
+    const n = cuantas();
+    salida.dataset.tipo = "";
+    salida.textContent = refrescar
+      ? "Descargando datos nuevos y simulando…" : `Simulando ${miles(n)} temporadas…`;
+
+    const t0 = performance.now();
+    const resp = await fetch("/api/simular", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ n_sims: n, refrescar }),
+    });
+    const cuerpo = await resp.json();
+    if (!resp.ok) throw new Error(cuerpo.error || "Error " + resp.status);
+    doc = cuerpo;
+    escenarioTocadoEnNavegador = false;
+    invalidarFichaCache();
+    pintar();
+    entradaSims.value = doc.simulation.n_sims;
+    salida.dataset.tipo = "ok";
+    salida.textContent = `Listo en ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+  }
+
+  async function regenerar(salida, refrescar = false) {
+    for (const b of [boton, botonActualizar]) b.disabled = true;
+    try {
+      if (servido) await simularEnServidor(refrescar, salida);
+      else await simularAqui(salida);
+    } catch (err) {
+      salida.dataset.tipo = "error";
+      salida.textContent = err.message;
+    } finally {
+      for (const b of [boton, botonActualizar]) b.disabled = false;
+      document.getElementById("limpiar-escenario").disabled =
+        !editable || !doc.calendar || !doc.calendar.scenario_count;
+    }
+  }
+
+  for (const [id, clave] of [["plaza-extra-europa", "europa"], ["plaza-extra-copa", "copa"]]) {
+    document.getElementById(id).addEventListener("change", (e) => {
+      plazasExtra[clave] = e.target.checked;
+      pintar();
+      if (dialogo.open && fichaRef) cambiarVistaFicha(fichaVista);
+    });
+  }
+
+  boton.addEventListener("click", () => regenerar(estado));
+  botonActualizar.addEventListener("click", () => regenerar(estado, true));
+  document.getElementById("simular-escenario").addEventListener("click", () =>
+    regenerar(document.getElementById("estado-escenario")));
+
+  document.getElementById("limpiar-escenario").addEventListener("click", async () => {
+    const salida = document.getElementById("estado-escenario");
+    try {
+      let borradas;
+      if (servido) {
+        const resp = await fetch("/api/escenario/limpiar", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+        });
+        const cuerpo = await resp.json();
+        if (!resp.ok) throw new Error(cuerpo.error || "Error " + resp.status);
+        borradas = cuerpo.borrados;
+      } else {
+        borradas = Object.keys(almacen.leer()).length;
+        almacen.escribir({});
+        aplicarEscenarioGuardado();
+      }
+      salida.dataset.tipo = "ok";
+      salida.textContent = `${borradas} hipótesis borradas. Simulando…`;
+      await regenerar(salida);
+    } catch (err) {
+      salida.dataset.tipo = "error";
+      salida.textContent = err.message;
+    }
+  });
+
+  if (!servido) {
+    const aviso = document.getElementById("aviso-estatico");
+    aviso.hidden = false;
+    aviso.innerHTML = motor
+      ? "<b>Esta copia simula sola.</b> El motor va incluido en la página, así que " +
+        "puedes cambiar el número de simulaciones y poner resultados en el calendario " +
+        "sin nada detrás, también sin conexión. Lo que no puede es traer datos nuevos: " +
+        "los resultados son los del <b>" + doc.as_of.date + "</b>. Para actualizarlos, " +
+        "abre el panel servido: <code>python -m simliga servidor --temporada " +
+        doc.season + "</code>"
+      : "<b>Este panel es una foto.</b> Para regenerar la simulación hace falta un " +
+        "proceso que ejecute Python: <code>python -m simliga servidor --temporada " +
+        doc.season + "</code>";
+  }
+
+  aplicarEscenarioGuardado();
+  pintar();
+
+  // Las hipotesis guardadas se ven en el calendario nada mas abrir, pero las
+  // cifras de la tabla son todavia las de la ultima simulacion. Decirlo evita
+  // que parezca que los resultados puestos no han hecho nada.
+  if (!servido && doc.calendar && doc.calendar.scenario_count) {
+    const salida = document.getElementById("estado-escenario");
+    salida.dataset.tipo = "";
+    const n = doc.calendar.scenario_count;
+    salida.textContent = `${n} ${n === 1 ? "hipótesis guardada" : "hipótesis guardadas"} ` +
+      "en este navegador. Ya cuentan en «Clasificación simulada»; pulsa " +
+      "«Simular con estos resultados» para rehacer la proyección.";
+  }
+})();
+</script>

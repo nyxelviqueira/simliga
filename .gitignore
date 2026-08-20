@@ -1,0 +1,11 @@
+.venv/
+.claude/
+.tmp/
+__pycache__/
+*.pyc
+data/*.sqlite
+data/raw/
+out/
+.pytest_cache/
+.pytest-cache-current
+.pytest-basetemp-current
