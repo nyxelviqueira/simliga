@@ -143,7 +143,16 @@ class SimConfig:
     # Reglas de clasificacion de LaLiga.
     points_win: int = 3
     points_draw: int = 1
-    ucl_slots: int = 4                  # plazas Champions fijas; la 5a depende del EPS UEFA
+    # Plazas europeas que reparte LA LIGA. La de Europa League del campeon de
+    # Copa NO se cuenta aqui: va aparte, porque puede tocarle a un equipo que no
+    # esta entre los de arriba (la Real Sociedad acabo 10a en 2025-26 y entro).
+    #
+    # La quinta de Champions es la que la UEFA da por rendimiento continental
+    # (European Performance Spot) y no esta garantizada de un año para otro.
+    # Espana la tuvo en 2025-26: el quinto, el Betis con 60 puntos, entro en
+    # Champions, y todo el reparto de abajo bajo un escalon. Si algun año no se
+    # consigue, hay que volver a poner 4 aqui.
+    ucl_slots: int = 5
     uel_slots: int = 1
     uecl_slots: int = 1
     relegation_slots: int = 3

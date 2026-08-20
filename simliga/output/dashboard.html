@@ -1754,8 +1754,11 @@ tbody tr[data-equipo] { cursor: pointer; }
         tr.append(
           el("td", "col-pos", comp.provisional ? "—" : String(i + 1)),
           equipo,
-          el("td", null, `<b>${num(lp.expected_position)}</b>`),
-          el("td", null, num(lp.expected_points)),
+          // Redondeados a entero: son medias sobre miles de sorteos, y el
+          // decimal sugiere una precision que la estimacion no tiene (el campo
+          // rival ni siquiera esta sorteado todavia).
+          el("td", null, `<b>${Math.round(lp.expected_position)}</b>`),
+          el("td", null, String(Math.round(lp.expected_points))),
           celdaProb(lp.p_direct_to_r16), celdaProb(lp.p_eliminated),
           celdaProb(f.round_of_16), celdaProb(f.quarter_finals),
           celdaProb(f.semi_finals), celdaProb(f.final), celdaProb(f.winner),

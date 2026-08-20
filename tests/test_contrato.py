@@ -119,9 +119,13 @@ def test_las_reglas_de_clasificacion_cubren_rangos_validos(documento):
         assert 1 <= desde <= hasta <= n, nombre
     assert reglas["ucl"][1] + 1 == reglas["uel"][0]      # rangos contiguos
     assert reglas["uel"][1] + 1 == reglas["uecl"][0]
-    assert reglas["ucl"] == [1, 4], "solo hay cuatro plazas Champions fijas"
-    assert reglas["uel"] == [5, 5], "la segunda UEL depende de Copa"
-    assert reglas["uecl"] == [6, 6]
+    # Espana tiene la 5a plaza de Champions por coeficiente UEFA (EPS): en
+    # 2025-26 el quinto, el Betis, entro en Champions. Las plazas que cuentan
+    # aqui son las que reparte LA LIGA; la Europa League del campeon de Copa va
+    # aparte, porque puede tocarle a alguien de mitad de tabla.
+    assert reglas["ucl"] == [1, 5], "cinco plazas Champions con el EPS"
+    assert reglas["uel"] == [6, 6], "la otra UEL es la del campeon de Copa"
+    assert reglas["uecl"] == [7, 7]
     assert "qualification_note" in documento["competitions"]["ESP1"]
     assert "coeficiente" in documento["competitions"]["ESP1"]["qualification_note"]
 
@@ -618,10 +622,10 @@ def test_las_plazas_europeas_salen_de_la_temporada_anterior():
     bloque = contract.build_european_qualification(anterior, "2025-26", load_config())
     assert bloque["source_season"] == "2025-26"
     orden = [t["team"] for t in bloque["teams"]]
-    assert orden[:4] == equipos[:4], "las cuatro primeras plazas fijas son de Champions"
-    assert [t["competition"] for t in bloque["teams"][:4]] == ["UCL"] * 4
-    assert bloque["teams"][4]["competition"] == "UEL"
-    assert bloque["teams"][5]["competition"] == "UECL"
+    assert orden[:5] == equipos[:5], "las cinco primeras plazas son de Champions"
+    assert [t["competition"] for t in bloque["teams"][:5]] == ["UCL"] * 5
+    assert bloque["teams"][5]["competition"] == "UEL"
+    assert bloque["teams"][6]["competition"] == "UECL"
 
 
 def test_avisa_de_que_falta_el_campeon_de_copa():
@@ -736,11 +740,11 @@ def test_el_campeon_de_copa_desplaza_el_reparto_de_la_liga():
         partidos, "2025-26", load_config(), cup_winner="Equipo 10")
 
     plazas = {t["team"]: t["competition"] for t in bloque["teams"]}
-    assert [t for t, c in plazas.items() if c == "UCL"] == equipos[:4]
-    assert set(t for t, c in plazas.items() if c == "UEL") == {"Equipo 05", "Equipo 10"}
-    assert [t for t, c in plazas.items() if c == "UECL"] == ["Equipo 06"], (
-        "si el campeon de Copa entra aparte, el sexto se queda en Conference")
-    assert "Equipo 07" not in plazas
+    assert [t for t, c in plazas.items() if c == "UCL"] == equipos[:5]
+    assert set(t for t, c in plazas.items() if c == "UEL") == {"Equipo 06", "Equipo 10"}
+    assert [t for t, c in plazas.items() if c == "UECL"] == ["Equipo 07"], (
+        "si el campeon de Copa entra aparte, el septimo se queda en Conference")
+    assert "Equipo 08" not in plazas
 
 
 def test_el_campeon_entra_marcado_como_tal():
@@ -759,8 +763,8 @@ def test_si_el_campeon_ya_estaba_clasificado_el_reparto_no_cambia():
         partidos, "2025-26", load_config(), cup_winner="Equipo 02")
 
     plazas = {t["team"]: t["competition"] for t in bloque["teams"]}
-    assert set(t for t, c in plazas.items() if c == "UEL") == {"Equipo 05", "Equipo 06"}
-    assert [t for t, c in plazas.items() if c == "UECL"] == ["Equipo 07"]
+    assert set(t for t, c in plazas.items() if c == "UEL") == {"Equipo 06", "Equipo 07"}
+    assert [t for t, c in plazas.items() if c == "UECL"] == ["Equipo 08"]
     assert "revierte" in bloque["caveat"]
 
 

@@ -132,9 +132,9 @@ Códigos: `ESP1` (LaLiga), `ESP2` (Hypermotion), `UCL`, `UEL`, `UECL`.
   "name": "LaLiga EA Sports",
   "n_teams": 20,
   "qualification_rules": {      // rangos de posición [desde, hasta], ambos incluidos
-    "ucl":        [1, 4],
-    "uel":        [5, 5],
-    "uecl":       [6, 6],
+    "ucl":        [1, 5],       // 5 con la plaza extra por coeficiente UEFA (EPS)
+    "uel":        [6, 6],       // la otra UEL es la del campeón de Copa, que va aparte
+    "uecl":       [7, 7],
     "relegation": [18, 20]
   },
   "qualification_note": "Reparto europeo provisional: ...",
