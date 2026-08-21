@@ -923,26 +923,18 @@ def _jornada(numero, fechas, jugados=0):
     return {
         "matchday": numero,
         "matches": [{"date": f, "status": "played" if i < jugados else "pending"}
-                    for i, f in enumerate(fechas)],
+                    for i, f in enumerate(sorted(fechas))],
     }
 
 
-def _liga(*, aplazado=None, jugadas_enteras=0):
-    """Cinco jornadas de cuatro partidos, una por fin de semana desde el 15/08.
-
-    Con `aplazado` se mueve un partido de la jornada 2 a esa fecha, que es el
-    caso que antes anclaba la vista.
-    """
+def _liga(jugadas_enteras=0):
+    """Cinco jornadas de cuatro partidos, una por fin de semana desde el 15/08."""
     bloques = []
     for j in range(1, 6):
         sabado = pd.Timestamp("2026-08-15") + pd.Timedelta(days=7 * (j - 1))
         fechas = [sabado.strftime("%Y-%m-%d")] * 3 + [
             (sabado + pd.Timedelta(days=1)).strftime("%Y-%m-%d")]
-        jugados = 4 if j <= jugadas_enteras else 0
-        if j == 2 and aplazado:
-            fechas[-1] = aplazado
-            jugados = 3          # tres jugados y el aplazado pendiente
-        bloques.append(_jornada(j, fechas, jugados))
+        bloques.append(_jornada(j, fechas, 4 if j <= jugadas_enteras else 0))
     return bloques
 
 
@@ -959,14 +951,38 @@ def test_al_completarse_la_jornada_pasa_a_la_siguiente():
 
 
 def test_un_partido_aplazado_no_ancla_la_vista_en_su_jornada():
-    """El caso que rompia el criterio anterior.
+    """El caso real del 22 de agosto de 2026, que es de donde sale todo esto.
 
-    La jornada 2 se queda con un partido sin jugar hasta noviembre. Mirar "la
-    primera sin acabar" dejaba la vista en la 2 tres meses; mandar la fecha la
-    lleva a la jornada de esta semana.
+    La jornada 1 se jugo del 15 al 19 salvo cuatro partidos, movidos al fin de
+    semana siguiente. Mirar "la primera sin acabar" abria por la 1 mientras se
+    estaba jugando la 2.
     """
-    liga = _liga(aplazado="2026-11-18", jugadas_enteras=1)
-    assert contract.current_matchday(liga, pd.Timestamp("2026-08-30")) == 3
+    jornadas = [
+        _jornada(1, ["2026-08-15", "2026-08-15", "2026-08-16", "2026-08-16",
+                     "2026-08-17", "2026-08-19",           # jugados
+                     "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-27"],
+                  jugados=6),
+        _jornada(2, ["2026-08-20", "2026-08-21",           # jugados
+                     "2026-08-22", "2026-08-22", "2026-08-22", "2026-08-23",
+                     "2026-08-23", "2026-08-23", "2026-08-24", "2026-08-24"],
+                  jugados=2),
+        _jornada(3, ["2026-08-28"] + ["2026-08-29"] * 3 + ["2026-08-30"] * 4
+                 + ["2026-08-31"] * 2),
+    ]
+    assert contract.current_matchday(jornadas, pd.Timestamp("2026-08-22")) == 2
+
+
+def test_un_partido_adelantado_no_salta_por_encima_de_las_jornadas_de_en_medio():
+    """Al reves que el aplazado: un partido que se juega antes de tiempo.
+
+    La jornada 5 tiene un partido adelantado a septiembre. Sin parar la
+    busqueda en la primera jornada sin empezar, esa fecha suelta la haria
+    parecer en curso y se saltaria la 3 y la 4.
+    """
+    jornadas = _liga(jugadas_enteras=2)
+    jornadas[4]["matches"][0]["date"] = "2026-08-26"
+    jornadas[4]["matches"].sort(key=lambda p: p["date"])
+    assert contract.current_matchday(jornadas, pd.Timestamp("2026-08-30")) == 3
 
 
 def test_antes_de_empezar_la_temporada_la_jornada_en_curso_es_la_primera():

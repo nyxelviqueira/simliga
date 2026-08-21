@@ -517,16 +517,20 @@ def build_european_qualification(
     }
 
 
-def _fecha_nucleo(bloque: dict) -> str:
-    """La fecha central de una jornada: la semana en la que se juega de verdad.
+def _empezada(bloque: dict, hoy: str) -> bool:
+    """Si a esta jornada ya le ha llegado su turno.
 
-    Se usa la mediana y no la primera fecha porque un aplazamiento mueve un
-    partido meses adelante y estira el rango de la jornada entera; la mediana
-    se queda donde esta el grueso, que es lo que un aficionado llama "la
-    jornada de esta semana".
+    Basta con que su primer partido este fechado hoy o antes. Un aplazamiento
+    mueve partidos hacia adelante, nunca hacia atras, asi que esa primera fecha
+    no se le escapa a la jornada aunque le queden partidos sueltos meses
+    despues.
     """
-    fechas = sorted(p["date"] for p in bloque["matches"])
-    return fechas[len(fechas) // 2]
+    return (min(p["date"] for p in bloque["matches"]) <= hoy
+            or any(p["status"] == "played" for p in bloque["matches"]))
+
+
+def _entera(bloque: dict) -> bool:
+    return all(p["status"] == "played" for p in bloque["matches"])
 
 
 def current_matchday(bloques: list[dict], as_of: pd.Timestamp) -> int | None:
@@ -534,11 +538,15 @@ def current_matchday(bloques: list[dict], as_of: pd.Timestamp) -> int | None:
 
     No sirve "la primera que no este jugada entera", que es lo que hacia el
     panel: un partido aplazado deja su jornada incompleta durante meses y la
-    vista se quedaba anclada en septiembre mientras se jugaba la jornada 14.
+    vista se quedaba anclada en agosto mientras se jugaba la jornada 14. El
+    caso no es teorico: el 22 de agosto de 2026 la jornada 1 tenia cuatro
+    partidos movidos al fin de semana siguiente mientras se jugaba la 2.
 
-    Se decide por fecha: la ultima jornada cuya semana ya ha empezado. Y en
-    cuanto esa jornada esta entera, la que interesa es ya la siguiente, sin
-    esperar a que llegue su fin de semana.
+    Asi que es la ultima jornada que ya ha empezado, y la siguiente en cuanto
+    esa esta entera (sin esperar a que llegue su fin de semana). La busqueda se
+    para en la primera que no ha empezado en vez de recorrerlas todas: un
+    partido adelantado —que los hay— haria que una jornada de septiembre
+    pareciera empezada en agosto y se saltaria las de en medio.
     """
     if not bloques:
         return None
@@ -546,13 +554,11 @@ def current_matchday(bloques: list[dict], as_of: pd.Timestamp) -> int | None:
     hoy = pd.Timestamp(as_of).strftime("%Y-%m-%d")
     i = 0
     for k, bloque in enumerate(bloques):
-        if _fecha_nucleo(bloque) <= hoy:
-            i = k
+        if not _empezada(bloque, hoy):
+            break
+        i = k
 
-    def entera(bloque: dict) -> bool:
-        return all(p["status"] == "played" for p in bloque["matches"])
-
-    while i + 1 < len(bloques) and entera(bloques[i]):
+    while i + 1 < len(bloques) and _entera(bloques[i]):
         i += 1
     return int(bloques[i]["matchday"])
 

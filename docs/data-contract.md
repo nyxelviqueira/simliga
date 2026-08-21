@@ -548,10 +548,10 @@ prediccion del modelo (1X2), util para ensenarla al lado del campo de entrada.
 **`current_matchday` es por donde debe abrirse la vista de calendario.** No es
 lo mismo que "la primera jornada sin acabar": un partido aplazado deja su
 jornada incompleta durante meses, y abrir por ella dejaria la vista anclada en
-septiembre mientras se juega la jornada 14. Se calcula por fecha, tomando de
-cada jornada su fecha central (la mediana, que un aplazamiento no mueve): es la
-ultima jornada cuya semana ya ha empezado, o la siguiente si esa ya se jugo
-entera. Es `null` solo si no hay calendario.
+agosto mientras se juega la jornada 14. Es la ultima jornada que ya ha
+empezado (su primer partido esta fechado hoy o antes, o ya tiene algun
+resultado), y la siguiente en cuanto esa se jugo entera, sin esperar a que
+llegue su fin de semana. Es `null` solo si no hay calendario.
 
 **Un `scenario` no es un resultado real y el frontend no debe presentarlo como
 tal.** En el bloque de liga, `current.played` incluye los hipoteticos porque es
