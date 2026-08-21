@@ -92,6 +92,48 @@ def test_football_data_no_usa_nombres_de_presentacion_como_identidad():
     assert canonical("Alaves", "SP1") == "Deportivo Alaves"
     assert canonical("Dep. A Coruna", "SP1") == "Deportivo de La Coruna"
     assert canonical("La Coruna", "SP1") == "Deportivo de La Coruna"
+    # Grafias que la fuente estreno a mitad de la primera jornada de 2026-27.
+    assert canonical("Atl. Madrid", "SP1") == "Atletico de Madrid"
+    assert canonical("Rayo Vallecano", "SP1") == "Rayo Vallecano"
+
+
+def test_football_data_no_abre_ficha_nueva_por_un_cambio_de_grafia(monkeypatch, tmp_path):
+    """El caso que rompio la publicacion: `Ath Madrid` paso a `Atl. Madrid`.
+
+    Sin catalogar, la ficha nueva metia un equipo 21 en LaLiga y un partido 381,
+    porque el mismo Atletico-Malaga entraba dos veces con dos identidades.
+    """
+    from simliga.db import connect, get_or_create_team
+    from simliga.ingest import club_names
+    from simliga.ingest.football_data_uk import _CatalogoPerezoso, _team_id
+
+    monkeypatch.setattr(club_names, "cargar_alias", lambda paises=None, force=False: {
+        "atletico de madrid": "Atlético Madrid",
+        "atl madrid": "Atlético Madrid",
+    })
+
+    conn = connect(tmp_path / "test.sqlite")
+    atleti = get_or_create_team(conn, "Atletico de Madrid")
+
+    # Nombre sin catalogar y que tampoco casa por acentos: solo lo salva el catalogo.
+    assert _team_id(conn, "Atl. Madrid", "SP1", _CatalogoPerezoso(conn)) == atleti
+    assert conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0] == 1
+
+
+def test_football_data_si_abre_ficha_a_un_club_de_verdad_nuevo(monkeypatch, tmp_path):
+    """En Segunda suben cada año clubes que nunca han aparecido: esos si son nuevos."""
+    from simliga.db import connect, get_or_create_team
+    from simliga.ingest import club_names
+    from simliga.ingest.football_data_uk import _CatalogoPerezoso, _team_id
+
+    monkeypatch.setattr(club_names, "cargar_alias", lambda paises=None, force=False: {})
+
+    conn = connect(tmp_path / "test.sqlite")
+    get_or_create_team(conn, "Atletico de Madrid")
+
+    nuevo = _team_id(conn, "Club Recien Ascendido", "SP2", _CatalogoPerezoso(conn))
+    assert conn.execute("SELECT name FROM teams WHERE team_id = ?",
+                        (nuevo,)).fetchone()[0] == "Club Recien Ascendido"
 
 
 # ------------------------------------------------------- desempate de la tabla real

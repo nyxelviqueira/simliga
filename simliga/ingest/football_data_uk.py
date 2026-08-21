@@ -39,6 +39,7 @@ CANONICAL_NAMES = {
     "Amorebieta": "SD Amorebieta", "Andorra": "FC Andorra",
     "Ath Bilbao": "Athletic Club", "Ath Bilbao B": "Bilbao Athletic",
     "Ath Madrid": "Atletico de Madrid", "Barcelona": "FC Barcelona",
+    "Atl. Madrid": "Atletico de Madrid",         # grafia usada desde 2026-27
     "Barcelona B": "Barcelona Atletic", "Betis": "Real Betis", "Burgos": "Burgos CF",
     "Cadiz": "Cadiz CF", "Cartagena": "FC Cartagena", "Castellon": "CD Castellon",
     "Celta": "Celta de Vigo", "Ceuta": "AD Ceuta", "Cordoba": "Cordoba CF",
@@ -57,6 +58,7 @@ CANONICAL_NAMES = {
     "Mirandes": "CD Mirandes", "Murcia": "Real Murcia", "Numancia": "CD Numancia",
     "Osasuna": "CA Osasuna", "Oviedo": "Real Oviedo", "Ponferradina": "SD Ponferradina",
     "Rayo Majadahonda": "Rayo Majadahonda", "Real Madrid": "Real Madrid",
+    "Rayo Vallecano": "Rayo Vallecano",          # grafia usada desde 2026-27
     "Real Madrid B": "Real Madrid Castilla", "Recreativo": "Recreativo de Huelva",
     "Reus Deportiu": "CF Reus Deportiu", "Sabadell": "CE Sabadell",
     "Salamanca": "UD Salamanca", "Santander": "Racing de Santander", "Sevilla": "Sevilla FC",
@@ -117,9 +119,13 @@ def canonical(name: str, division: str = "SP1") -> str:
     curar 400 nombres mas no aportaria nada.
 
     Un nombre espanol desconocido se avisa por consola: la fuente cambia de
-    grafia de vez en cuando (en 2026-27 el Deportivo paso de `La Coruna` a
-    `Dep. A Coruna`) y, sin aviso, se crea una ficha duplicada que parte en dos
-    el historial del equipo y mete un equipo de mas en la tabla.
+    grafia a media temporada (en 2026-27 el Deportivo paso de `La Coruna` a
+    `Dep. A Coruna` y el Atletico de `Ath Madrid` a `Atl. Madrid`) y, sin
+    aviso, se crea una ficha duplicada que parte en dos el historial del equipo
+    y mete un equipo de mas en la tabla.
+
+    Esta funcion solo traduce y avisa; quien decide si se crea ficha nueva es
+    `_team_id`, que antes le pregunta al catalogo de clubes.
     """
     name = name.strip()
     if division not in ("SP1", "SP2"):
@@ -134,6 +140,54 @@ def canonical(name: str, division: str = "SP1") -> str:
 _AVISOS: set[str] = set()
 
 
+class _CatalogoPerezoso:
+    """El catalogo de clubes de openfootball, construido solo si hace falta.
+
+    Es la red de seguridad contra los cambios de grafia. `Atl. Madrid` no
+    estaba en `CANONICAL_NAMES`, pero el catalogo si sabe que es el `Atletico
+    de Madrid`, y con eso se devuelve la ficha que ya existe en vez de abrir
+    una nueva. Un nombre que no este en ningun sitio si crea ficha: en Segunda
+    suben cada año clubes que nunca han aparecido antes.
+
+    Se construye tarde a proposito: descarga y parsea el repositorio de clubes,
+    y en la ingesta normal, con todos los nombres catalogados, no se llega a
+    tocar nunca.
+    """
+
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+        self._resolver = None
+
+    def resolver_existente(self, nombre: str) -> int | None:
+        if self._resolver is None:
+            from .club_names import ResolverEquipos
+
+            self._resolver = ResolverEquipos(self.conn, ("ESP",))
+        return self._resolver.resolver_existente(nombre)
+
+
+def _team_id(
+    conn: sqlite3.Connection, raw_name: str, division: str, catalogo: _CatalogoPerezoso
+) -> int:
+    """`team_id` del equipo, sin abrirle ficha nueva a quien ya tiene una."""
+    nombre = canonical(raw_name, division)
+    if division in ("SP1", "SP2") and raw_name not in CANONICAL_NAMES:
+        conocido = conn.execute(
+            "SELECT team_id FROM teams WHERE name = ?", (nombre,)
+        ).fetchone()
+        if conocido is None:
+            existente = catalogo.resolver_existente(raw_name)
+            if existente is not None:
+                print(f"  {raw_name!r} casado con la ficha que ya existia "
+                      f"(via el catalogo de clubes); no se crea ninguna nueva")
+                register_alias(conn, raw_name, SOURCE, existente)
+                return existente
+
+    team_id = get_or_create_team(conn, nombre, DIVISION_COUNTRY.get(division, "ESP"))
+    register_alias(conn, raw_name, SOURCE, team_id)
+    return team_id
+
+
 def ingest_season(
     conn: sqlite3.Connection, start_year: int, division: str, force_download: bool = False
 ) -> int:
@@ -142,15 +196,13 @@ def ingest_season(
     season = season_label(start_year)
     df = load_csv(download_season(start_year, division, force=force_download))
 
+    catalogo = _CatalogoPerezoso(conn)
     n = 0
     for _, row in df.iterrows():
         ids = {}
         for side in ("Home", "Away"):
             raw_name = str(row[f"{side}Team"]).strip()
-            team_id = get_or_create_team(conn, canonical(raw_name, division),
-                                         DIVISION_COUNTRY.get(division, "ESP"))
-            register_alias(conn, raw_name, SOURCE, team_id)
-            ids[side] = team_id
+            ids[side] = _team_id(conn, raw_name, division, catalogo)
 
         match_id = upsert_match(
             conn,

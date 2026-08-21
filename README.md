@@ -574,6 +574,22 @@ empatados a puntos el motor cae al criterio de diferencia general (la tabla
 real sí resuelve el caso completo). Los empates triples son raros y el sesgo
 sobre las probabilidades finales es de décimas de punto porcentual.
 
+**La identidad de un equipo es su `team_id`, nunca su nombre.** Los partidos
+guardan dos identificadores, y el nombre solo se usa para pintar. El problema
+no es ese, sino la puerta: football-data.co.uk no publica identificadores, solo
+un nombre corto, y lo cambia sin avisar (en 2026-27, a mitad de la primera
+jornada, `Ath Madrid` pasó a `Atl. Madrid` y `Vallecano` a `Rayo Vallecano`).
+Un nombre que no estaba en el mapa curado abría ficha nueva, y con ella un
+equipo 21 y un partido 381, porque el mismo Atlético–Málaga entraba dos veces
+con dos identidades distintas.
+
+Ahora hay tres defensas, de fuera adentro: el mapa curado `CANONICAL_NAMES`;
+el catálogo de clubes de openfootball como red de seguridad, que ya sabía que
+`Atl. Madrid` es el Atlético y devuelve la ficha que ya existía; y el chequeo
+de integridad, que aborta antes de simular si el recuento no cuadra. Solo se
+crea ficha si ninguna de las dos primeras reconoce el nombre, que es lo que
+debe pasar con un club recién ascendido de verdad.
+
 ---
 
 ## Hoja de ruta
