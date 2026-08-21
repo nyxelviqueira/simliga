@@ -1,6 +1,6 @@
 # Contrato de datos — salida del simulador
 
-**Versión de esquema:** `1.9.0` · **Formato:** un único fichero JSON, UTF-8
+**Versión de esquema:** `1.10.0` · **Formato:** un único fichero JSON, UTF-8
 
 Este documento describe el JSON que produce el motor de simulación. Está pensado
 para que se pueda construir un dashboard **sin leer el código del motor**. Si
@@ -43,7 +43,7 @@ Se genera con:
 
 ```jsonc
 {
-  "schema_version": "1.9.0",
+  "schema_version": "1.10.0",
   "engine_version": "0.7.0",
   "generated_at": "2026-08-19T21:14:05Z",
   "season": "2024-25",
@@ -491,6 +491,7 @@ cada partido declara su estado, y solo los pendientes admiten hipotesis.
 
 ```jsonc
 "calendar": {
+  "current_matchday": 2,        // la jornada en curso: por la que abrir la vista
   "scenario_count": 4,          // cuantos resultados hipoteticos hay activos
   "live_count": 1,              // cuantos partidos estan en juego
   "editable": true,
@@ -543,6 +544,14 @@ Los cuatro estados y lo que significan:
 
 Los partidos pendientes y de escenario traen ademas `probabilities` con la
 prediccion del modelo (1X2), util para ensenarla al lado del campo de entrada.
+
+**`current_matchday` es por donde debe abrirse la vista de calendario.** No es
+lo mismo que "la primera jornada sin acabar": un partido aplazado deja su
+jornada incompleta durante meses, y abrir por ella dejaria la vista anclada en
+septiembre mientras se juega la jornada 14. Se calcula por fecha, tomando de
+cada jornada su fecha central (la mediana, que un aplazamiento no mueve): es la
+ultima jornada cuya semana ya ha empezado, o la siguiente si esa ya se jugo
+entera. Es `null` solo si no hay calendario.
 
 **Un `scenario` no es un resultado real y el frontend no debe presentarlo como
 tal.** En el bloque de liga, `current.played` incluye los hipoteticos porque es

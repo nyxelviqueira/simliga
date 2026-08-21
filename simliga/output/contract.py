@@ -21,7 +21,7 @@ from ..sim.league import LeagueSimResult
 from ..sim.uefa import UefaSimResult
 from .team_identity import team_identity
 
-SCHEMA_VERSION = "1.9.0"
+SCHEMA_VERSION = "1.10.0"
 ENGINE_VERSION = "0.7.0"
 
 COMPETITION_NAMES = {
@@ -517,6 +517,46 @@ def build_european_qualification(
     }
 
 
+def _fecha_nucleo(bloque: dict) -> str:
+    """La fecha central de una jornada: la semana en la que se juega de verdad.
+
+    Se usa la mediana y no la primera fecha porque un aplazamiento mueve un
+    partido meses adelante y estira el rango de la jornada entera; la mediana
+    se queda donde esta el grueso, que es lo que un aficionado llama "la
+    jornada de esta semana".
+    """
+    fechas = sorted(p["date"] for p in bloque["matches"])
+    return fechas[len(fechas) // 2]
+
+
+def current_matchday(bloques: list[dict], as_of: pd.Timestamp) -> int | None:
+    """La jornada que toca mirar hoy, para abrir el calendario por ella.
+
+    No sirve "la primera que no este jugada entera", que es lo que hacia el
+    panel: un partido aplazado deja su jornada incompleta durante meses y la
+    vista se quedaba anclada en septiembre mientras se jugaba la jornada 14.
+
+    Se decide por fecha: la ultima jornada cuya semana ya ha empezado. Y en
+    cuanto esa jornada esta entera, la que interesa es ya la siguiente, sin
+    esperar a que llegue su fin de semana.
+    """
+    if not bloques:
+        return None
+
+    hoy = pd.Timestamp(as_of).strftime("%Y-%m-%d")
+    i = 0
+    for k, bloque in enumerate(bloques):
+        if _fecha_nucleo(bloque) <= hoy:
+            i = k
+
+    def entera(bloque: dict) -> bool:
+        return all(p["status"] == "played" for p in bloque["matches"])
+
+    while i + 1 < len(bloques) and entera(bloques[i]):
+        i += 1
+    return int(bloques[i]["matchday"])
+
+
 def build_calendar_block(
     fit: DixonColesFit,
     season_matches: pd.DataFrame,
@@ -609,6 +649,7 @@ def build_calendar_block(
 
     return {
         "matchdays": lista,
+        "current_matchday": current_matchday(lista, as_of),
         "scenario_count": sum(b["scenario"] for b in lista),
         "live_count": sum(b["live"] for b in lista),
         "editable": True,

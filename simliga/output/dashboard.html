@@ -400,8 +400,11 @@ tbody tr:hover td { background: var(--surface-alt); }
 .jornada-btn[aria-pressed="true"] {
   background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
 }
-/* Una franja inferior dice de un vistazo en que estado esta la jornada. */
-.jornada-btn[data-estado="played"] { box-shadow: inset 0 -3px 0 var(--ink-faint); }
+/* Una franja inferior dice de un vistazo en que estado esta la jornada:
+   verde la que ya esta entera, roja la que se esta jugando ahora mismo y
+   ambar la que tiene resultados hipoteticos puestos a mano. Sin franja, aun
+   no ha pasado nada en ella. */
+.jornada-btn[data-estado="played"] { box-shadow: inset 0 -3px 0 var(--ucl); }
 .jornada-btn[data-estado="live"] { box-shadow: inset 0 -3px 0 var(--drop); }
 .jornada-btn[data-estado="scenario"] { box-shadow: inset 0 -3px 0 var(--uel); }
 
@@ -1434,10 +1437,12 @@ tbody tr[data-equipo] { cursor: pointer; }
     if (!cal || !cal.matchdays.length) { seccion.hidden = true; return; }
     seccion.hidden = false;
 
-    // Al abrir, la jornada util es la primera que aun no se ha jugado entera.
+    // Al abrir, la jornada en curso. La decide el contrato (`current_matchday`)
+    // porque hace falta mirar fechas para no quedarse anclado en una jornada
+    // que un aplazamiento deja incompleta durante meses.
     if (jornadaVista === null) {
-      const pendiente = cal.matchdays.find(b => b.played < b.matches.length);
-      jornadaVista = (pendiente || cal.matchdays[0]).matchday;
+      const existe = cal.matchdays.some(b => b.matchday === cal.current_matchday);
+      jornadaVista = existe ? cal.current_matchday : cal.matchdays[0].matchday;
     }
 
     const intro = document.getElementById("intro-calendario");
@@ -1465,7 +1470,8 @@ tbody tr[data-equipo] { cursor: pointer; }
       else if (bloque.played === bloque.matches.length) b.dataset.estado = "played";
       b.title = `Jornada ${bloque.matchday} · ${bloque.date_from}` +
         (bloque.date_to !== bloque.date_from ? ` a ${bloque.date_to}` : "") +
-        ` · ${bloque.played} jugados, ${bloque.live} en juego, ${bloque.scenario} hipotéticos`;
+        ` · ${bloque.played} jugados, ${bloque.live} en juego, ${bloque.scenario} hipotéticos` +
+        (bloque.matchday === cal.current_matchday ? " · jornada en curso" : "");
       b.addEventListener("click", () => { jornadaVista = bloque.matchday; pintarCalendario(); });
       selector.append(b);
     }

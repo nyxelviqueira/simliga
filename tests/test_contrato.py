@@ -63,7 +63,7 @@ def test_tiene_las_claves_de_primer_nivel_documentadas(documento):
                  "european_qualification",
                  "fixtures", "validation", "meta"}
     assert esperadas <= set(documento)
-    assert documento["schema_version"] == "1.9.0"
+    assert documento["schema_version"] == "1.10.0"
 
 
 def test_es_serializable_a_json(documento):
@@ -915,3 +915,89 @@ def test_la_tabla_simulada_se_rehace_al_editar_un_marcador():
     plantilla = _plantilla()
     guardar = plantilla.split("async function guardarEscenario")[1].split("\n  }")[0]
     assert 'seguro("clasificacion simulada", pintarSimulada);' in guardar
+
+
+# ------------------------------------------------- la jornada en curso
+def _jornada(numero, fechas, jugados=0):
+    """Bloque de jornada minimo: solo lo que mira `current_matchday`."""
+    return {
+        "matchday": numero,
+        "matches": [{"date": f, "status": "played" if i < jugados else "pending"}
+                    for i, f in enumerate(fechas)],
+    }
+
+
+def _liga(*, aplazado=None, jugadas_enteras=0):
+    """Cinco jornadas de cuatro partidos, una por fin de semana desde el 15/08.
+
+    Con `aplazado` se mueve un partido de la jornada 2 a esa fecha, que es el
+    caso que antes anclaba la vista.
+    """
+    bloques = []
+    for j in range(1, 6):
+        sabado = pd.Timestamp("2026-08-15") + pd.Timedelta(days=7 * (j - 1))
+        fechas = [sabado.strftime("%Y-%m-%d")] * 3 + [
+            (sabado + pd.Timedelta(days=1)).strftime("%Y-%m-%d")]
+        jugados = 4 if j <= jugadas_enteras else 0
+        if j == 2 and aplazado:
+            fechas[-1] = aplazado
+            jugados = 3          # tres jugados y el aplazado pendiente
+        bloques.append(_jornada(j, fechas, jugados))
+    return bloques
+
+
+def test_la_jornada_en_curso_es_la_de_esta_semana():
+    # Domingo de la jornada 3, con la 1 y la 2 ya jugadas.
+    assert contract.current_matchday(
+        _liga(jugadas_enteras=2), pd.Timestamp("2026-08-30")) == 3
+
+
+def test_al_completarse_la_jornada_pasa_a_la_siguiente():
+    """Terminada la jornada 3, lo que interesa es la 4, sin esperar a su semana."""
+    assert contract.current_matchday(
+        _liga(jugadas_enteras=3), pd.Timestamp("2026-08-30")) == 4
+
+
+def test_un_partido_aplazado_no_ancla_la_vista_en_su_jornada():
+    """El caso que rompia el criterio anterior.
+
+    La jornada 2 se queda con un partido sin jugar hasta noviembre. Mirar "la
+    primera sin acabar" dejaba la vista en la 2 tres meses; mandar la fecha la
+    lleva a la jornada de esta semana.
+    """
+    liga = _liga(aplazado="2026-11-18", jugadas_enteras=1)
+    assert contract.current_matchday(liga, pd.Timestamp("2026-08-30")) == 3
+
+
+def test_antes_de_empezar_la_temporada_la_jornada_en_curso_es_la_primera():
+    assert contract.current_matchday(_liga(), pd.Timestamp("2026-07-01")) == 1
+
+
+def test_acabada_la_temporada_se_queda_en_la_ultima_jornada():
+    assert contract.current_matchday(
+        _liga(jugadas_enteras=5), pd.Timestamp("2027-06-01")) == 5
+
+
+def test_sin_calendario_no_hay_jornada_en_curso():
+    assert contract.current_matchday([], pd.Timestamp("2026-08-30")) is None
+
+
+def test_el_calendario_publica_la_jornada_en_curso():
+    """Sobre un documento completo de verdad, con calendario dentro."""
+    from tests.utiles import documento_de_prueba
+
+    cal = documento_de_prueba(n_sims=200, jugadas=2)["calendar"]
+    assert cal["current_matchday"] in [b["matchday"] for b in cal["matchdays"]]
+    assert cal["current_matchday"] == 3, "jugadas la 1 y la 2, toca abrir por la 3"
+
+
+def test_el_panel_abre_el_calendario_por_la_jornada_en_curso():
+    """Quien decide es el contrato; el panel no vuelve a inventar el criterio."""
+    plantilla = _plantilla()
+    assert "jornadaVista = existe ? cal.current_matchday : cal.matchdays[0].matchday;" in plantilla
+
+
+def test_una_jornada_entera_se_marca_en_verde():
+    """Verde es el color de lo ya conseguido en el resto del panel (`--ucl`)."""
+    plantilla = _plantilla()
+    assert '.jornada-btn[data-estado="played"] { box-shadow: inset 0 -3px 0 var(--ucl); }' in plantilla
