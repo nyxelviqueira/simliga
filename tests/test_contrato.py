@@ -1084,16 +1084,16 @@ def test_un_partido_acabado_que_el_modelo_aun_no_tiene_no_dice_en_juego():
 
 
 # ------------------------------------------------- compactado del panel
-def test_cada_enlace_de_la_barra_apunta_a_una_seccion_que_existe():
-    """Un href mal escrito no falla: simplemente no lleva a ninguna parte."""
+def test_cada_pestana_apunta_a_secciones_que_existen():
+    """Un id mal escrito no falla: la pestana sale y no ensena nada."""
     import re
 
     plantilla = _plantilla()
-    barra = plantilla.split('<nav class="navegacion"')[1].split("</nav>")[0]
-    destinos = re.findall(r'href="#([^"]+)"', barra)
-    assert len(destinos) >= 4, "la barra tiene que llevar a las secciones largas"
-    for destino in destinos:
-        assert f'id="{destino}"' in plantilla, f"la barra apunta a #{destino}, que no existe"
+    bloque = plantilla.split("const SECCIONES = [")[1].split("];")[0]
+    ids = re.findall(r'"(resumen|seccion-[a-z]+)"', bloque)
+    assert len(ids) >= 5, "las cinco secciones tienen que estar en la barra"
+    for destino in ids:
+        assert f'id="{destino}"' in plantilla, f"la pestana apunta a #{destino}, que no existe"
 
 
 def test_la_barra_de_secciones_se_queda_arriba_al_bajar():
@@ -1102,25 +1102,64 @@ def test_la_barra_de_secciones_se_queda_arriba_al_bajar():
     assert "position: sticky" in barra and "top: 0" in barra
 
 
-def test_las_dos_secciones_mas_largas_arrancan_plegadas():
-    """Europa y proximos partidos eran el 55% del scroll en movil."""
+def test_solo_se_ve_una_seccion_a_la_vez():
+    """Es lo que convierte doce pantallas de scroll en una vista por pestana."""
     plantilla = _plantilla()
-    bloque = plantilla.split("const SECCIONES = [")[1].split("];")[0]
-    assert '{ id: "seccion-europa", abierta: false,' in bloque
-    assert '{ id: "seccion-partidos", abierta: false,' in bloque
-    assert '{ id: "seccion-calendario", abierta: true,' in bloque
+    assert 'seccion.classList.toggle("fuera-de-vista", !dentro);' in plantilla
+    assert ".fuera-de-vista { display: none !important; }" in plantilla
 
 
-def test_lo_plegado_se_recuerda_entre_visitas():
+def test_una_seccion_sin_datos_no_saca_pestana():
+    """Sin sorteo europeo o sin calendario, la pestana sobraria."""
     plantilla = _plantilla()
-    assert 'clave: "simliga:secciones"' in plantilla
-    assert "memoriaSecciones.guardar(cfg.id, nueva);" in plantilla
+    assert "const pestanaTieneAlgo = (p) => seccionesDe(p).some(s => !s.hidden);" in plantilla
+    assert "SECCIONES.filter(pestanaTieneAlgo)" in plantilla
 
 
-def test_ir_a_una_seccion_plegada_la_abre():
-    """Saltar desde la barra y encontrarla cerrada seria un viaje en balde."""
+def test_ocultar_por_pestana_no_pisa_el_ocultar_por_falta_de_datos():
+    """Son dos cosas distintas: una la decide el usuario y la otra los datos.
+
+    Con `hidden` para las dos, volver de una pestana resucitaba una seccion que
+    no tenia nada que ensenar.
+    """
     plantilla = _plantilla()
-    assert "abridores.get(id)?.();" in plantilla
+    cuerpo = plantilla.split("function activarSeccion(")[1].split("function montarPestanas")[0]
+    assert 'classList.toggle("fuera-de-vista"' in cuerpo
+    assert "seccion.hidden =" not in cuerpo
+
+
+def test_se_recuerda_la_seccion_abierta():
+    plantilla = _plantilla()
+    assert 'clave: "simliga:seccion"' in plantilla
+    assert "activarSeccion(memoriaPestana.leer() || SECCIONES[0].clave);" in plantilla
+
+
+def test_la_tabla_de_proyeccion_no_se_arrastra_en_movil():
+    """980 px de tabla en 375 de pantalla: habia que recomponerla, no encogerla."""
+    plantilla = _plantilla()
+    movil = plantilla.split("@media (max-width: 640px) {")[1]
+    assert ".tabla-liga { display: block; min-width: 0; }" in movil
+    assert ".tabla-liga colgroup, .tabla-liga thead { display: none; }" in movil
+    assert "content: attr(data-etiqueta);" in movil
+
+
+def test_al_recomponer_la_tabla_no_se_pierde_ninguna_cifra():
+    """Apilar si; ocultar columnas no. Cada celda lleva el nombre de la suya."""
+    plantilla = _plantilla()
+    for etiqueta in ("J", "Pts", "Puntos al final", "Título", "Champions",
+                     "Europa L.", "Conference", "Descenso"):
+        assert f'"{etiqueta}"' in plantilla, f"falta la etiqueta {etiqueta}"
+    assert 'celdaProb(t.outcomes.title, "Título")' in plantilla
+    assert 'celdaProyeccion.dataset.etiqueta = "Puntos al final";' in plantilla
+
+
+def test_el_calendario_no_se_arrastra_en_movil():
+    """Pedia 760 px por fila; en movil se parte en dos alturas."""
+    plantilla = _plantilla()
+    movil = plantilla.split("@media (max-width: 640px) {")[1]
+    assert ".encuentros { min-width: 0; }" in movil
+    assert '"cuando cuando nota"' in movil
+    assert '"local marcador visita"' in movil
 
 
 def test_los_proximos_partidos_empiezan_en_seis_y_el_resto_van_a_peticion():

@@ -191,6 +191,15 @@ button.secundario {
   font-family: "IBM Plex Mono", monospace; font-size: 0.82em;
   background: var(--surface-alt); padding: 0.1rem 0.35rem; border-radius: 4px;
 }
+/* El aviso de la cabecera no es una advertencia: es una nota al pie que se
+   lee una vez. Sin caja ni barra de color pesa lo que tiene que pesar, y la
+   fecha ya esta ahi arriba, en «Datos hasta». */
+.aviso-fino {
+  border: 0; border-left: 0; background: transparent;
+  padding: 0; margin-top: -0.35rem;
+  font-size: 0.82rem; color: var(--ink-faint);
+}
+.aviso-fino b { font-weight: 600; }
 .aviso details { margin-top: 0.4rem; }
 .aviso summary {
   cursor: pointer; color: var(--accent);
@@ -199,57 +208,37 @@ button.secundario {
 .aviso details[open] summary { margin-bottom: 0.4rem; }
 
 /* ------------------------------------------------------------ navegacion --- */
-/* Se queda arriba al bajar. En movil las secciones largas van plegadas, asi
-   que esta barra es lo que las pone a un toque en vez de a seis pantallas. */
+/* La barra de secciones hace de tablist y se queda arriba al bajar: en una
+   tabla de veinte filas es lo que permite cambiar de seccion sin volver al
+   principio. */
 .navegacion {
   position: sticky; top: 0; z-index: 20;
   display: flex; gap: 0.25rem;
   margin: 0 -0.25rem;
-  padding: 0.45rem 0.25rem;
-  overflow-x: auto;                      /* en movil se arrastran los enlaces */
+  padding: 0.5rem 0.25rem;
+  overflow-x: auto;                      /* en movil se arrastran las pestanas */
   scrollbar-width: none;
   background: var(--fondo-barra);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
 .navegacion::-webkit-scrollbar { display: none; }
-.navegacion a {
+.pestana-seccion {
   flex: none;
-  padding: 0.35rem 0.7rem; border-radius: 999px;
-  font-family: Archivo, sans-serif; font-size: 0.82rem; font-weight: 500;
-  color: var(--ink-soft); text-decoration: none; white-space: nowrap;
-  border: 1px solid transparent;
+  padding: 0.4rem 0.8rem; border-radius: 999px;
+  font-family: Archivo, sans-serif; font-size: 0.85rem; font-weight: 500;
+  background: transparent; color: var(--ink-soft);
+  white-space: nowrap; border: 1px solid transparent;
 }
-.navegacion a:hover { background: var(--surface-alt); color: var(--ink); }
-.navegacion a[aria-current="true"] {
+.pestana-seccion:hover:not([aria-selected="true"]) {
+  background: var(--surface-alt); color: var(--ink);
+}
+.pestana-seccion[aria-selected="true"] {
   background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
 }
-/* Para que el ancla no aterrice debajo de la barra. */
-.seccion, .resumen { scroll-margin-top: 3.5rem; }
-
-/* ------------------------------------------------------- secciones plegables */
-.cabecera-seccion { display: flex; align-items: flex-start; gap: 0.75rem; }
-.cabecera-seccion > div:first-child { flex: 1; min-width: 0; }
-.plegar {
-  /* Desplegada, el boton va arriba con el titulo; una intro de cinco lineas lo
-     dejaba flotando en mitad del parrafo. Plegada, la cabecera es una linea y
-     el centro es su sitio. */
-  flex: none; align-self: flex-start;
-  display: flex; align-items: center; gap: 0.4rem;
-  padding: 0.3rem 0.6rem; border-radius: 999px;
-  background: var(--surface); border: 1px solid var(--line);
-  color: var(--ink-soft); font-family: Archivo, sans-serif; font-size: 0.78rem;
-}
-.plegar:hover { background: var(--surface-alt); color: var(--ink); }
-.plegar .flecha { transition: transform 0.15s ease; font-size: 0.7rem; }
-.seccion.plegada .plegar .flecha { transform: rotate(-90deg); }
-.seccion.plegada > *:not(.cabecera-seccion) { display: none; }
-/* Plegada, la seccion se queda en una linea: titulo y cuanto hay dentro. */
-.seccion.plegada .seccion-intro { display: none; }
-.seccion.plegada .cabecera-seccion { align-items: center; }
-.seccion.plegada .plegar { align-self: center; }
-.cuantos { color: var(--ink-faint); font-size: 0.8rem; margin-top: 0.15rem; }
-.seccion:not(.plegada) .cuantos { display: none; }
+/* La seccion que no toca. Clase y no `hidden`, porque `hidden` ya lo usa quien
+   la pinta para decir que no hay datos, y son dos cosas distintas. */
+.fuera-de-vista { display: none !important; }
 
 /* --------------------------------------------------------------- resumen --- */
 .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
@@ -699,9 +688,76 @@ tbody tr[data-equipo] { cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 @media (max-width: 640px) {
-  /* Nada de encoger las celdas ni ocultar su cifra: las tablas tienen su propio
-     desplazamiento horizontal, asi que en pantalla estrecha se arrastran en
-     lugar de perder el dato. */
+  /* La tabla de proyeccion mide 980 px y el movil 375: arrastrarla de lado
+     para leer una fila era insufrible. Aqui se recompone en una ficha por
+     equipo, con cada cifra rotulada por su columna (`data-etiqueta`). No se
+     pierde ni un dato, que era la razon por la que antes se arrastraba; solo
+     se apilan.
+
+     Las que siguen arrastrandose son la matriz de posiciones y las tablas
+     europeas: una matriz de 20x20 es una matriz, y apilarla no la mejora. */
+  .tabla-liga { display: block; min-width: 0; }
+  .tabla-liga colgroup, .tabla-liga thead { display: none; }
+  .tabla-liga tbody { display: flex; flex-direction: column; gap: 0.5rem; }
+  .tabla-liga tr {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 0.3rem 0.55rem;
+    padding: 0.6rem 0.7rem 0.65rem;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .tabla-liga td { display: block; border: 0; padding: 0; text-align: left; }
+  /* El orden visual no es el del DOM: primero puesto, equipo y proyeccion;
+     luego la barra a lo ancho; y debajo las cifras como rotulos. */
+  .tabla-liga td:nth-child(1) { order: 1; }
+  .tabla-liga td:nth-child(2) { order: 2; flex: 1 1 40%; min-width: 0; }
+  .tabla-liga td:nth-child(5) { order: 3; text-align: right; }
+  .tabla-liga td:nth-child(6) { order: 4; flex: 1 0 100%; margin: 0.1rem 0 0.2rem; }
+  .tabla-liga td:nth-child(3) { order: 5; flex: 0 0 auto; min-width: 1.6rem; }
+  .tabla-liga td:nth-child(4) { order: 6; flex: 0 0 auto; min-width: 1.9rem; }
+  /* Las cinco probabilidades se reparten la anchura que quede en su linea, en
+     vez de dejar «Descenso» sola con un hueco al lado. */
+  .tabla-liga td:nth-child(n+7) { order: 7; flex: 1 1 4.6rem; }
+  .tabla-liga td[data-etiqueta]::before {
+    content: attr(data-etiqueta);
+    display: block;
+    font-family: Archivo, sans-serif; font-size: 0.62rem; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-faint); line-height: 1.4;
+  }
+  /* El puesto deja de ser una celda con banda lateral y pasa a ser un disco
+     del color de su zona, que es lo que se busca de un vistazo. */
+  .tabla-liga td.col-pos {
+    flex: none; width: 1.65rem; height: 1.65rem;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 999px; border-left: 0;
+    background: var(--surface-alt); font-weight: 700; font-size: 0.8rem;
+  }
+  .tabla-liga td.banda-ucl  { background: var(--ucl);  color: #fff; }
+  .tabla-liga td.banda-uel  { background: var(--uel);  color: #fff; }
+  .tabla-liga td.banda-uecl { background: var(--uecl); color: #fff; }
+  .tabla-liga td.banda-drop { background: var(--drop); color: #fff; }
+  .tabla-liga .rango { min-width: 0; }
+
+  /* El calendario pedia 760 px por fila: fecha, local, marcador, visitante y
+     nota en linea. En movil se parte en dos alturas —arriba cuando y estado,
+     abajo el enfrentamiento— y deja de arrastrarse. */
+  .encuentros { min-width: 0; }
+  .encuentro {
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-areas:
+      "cuando cuando nota"
+      "local marcador visita";
+    gap: 0.35rem 0.5rem;
+    padding: 0.55rem 0.7rem;
+  }
+  .encuentro .cuando { grid-area: cuando; flex-direction: row; gap: 0.4rem; }
+  .encuentro .local { grid-area: local; }
+  .encuentro .marcador { grid-area: marcador; }
+  .encuentro .visita { grid-area: visita; }
+  .encuentro .nota { grid-area: nota; justify-content: flex-end; }
+  .encuentro .pronostico { flex-wrap: wrap; justify-content: flex-end; }
+
   .estado { margin-left: 0; width: 100%; }
   .envoltura {
     padding: 1.5rem 0.75rem 3rem;
@@ -753,14 +809,11 @@ tbody tr[data-equipo] { cursor: pointer; }
     <div class="aviso" id="aviso-estatico" hidden></div>
   </header>
 
-  <!-- La barra se queda arriba al bajar. Con las secciones largas plegadas,
-       es lo que convierte doce pantallas de scroll en un toque. -->
-  <nav class="navegacion" id="navegacion" aria-label="Secciones del panel">
-    <a href="#seccion-tablas">Proyección</a>
-    <a href="#seccion-calor">Dónde acaba</a>
-    <a href="#seccion-calendario">Calendario</a>
-    <a href="#seccion-europa">Europa</a>
-    <a href="#seccion-partidos">Partidos</a>
+  <!-- Una cosa cada vez. Con cinco secciones apiladas el panel eran doce
+       pantallas de movil; en pestanas se ve la que se ha pedido y ya. La barra
+       se queda arriba al bajar, que en la tabla larga es lo que permite
+       cambiar de seccion sin volver al principio. -->
+  <nav class="navegacion" id="navegacion" role="tablist" aria-label="Secciones del panel">
   </nav>
 
   <section class="resumen" id="resumen"></section>
@@ -800,7 +853,7 @@ tbody tr[data-equipo] { cursor: pointer; }
     </div>
   </section>
 
-  <section class="seccion" id="seccion-calor" data-plegable>
+  <section class="seccion" id="seccion-calor">
     <div class="cabecera-seccion">
       <h2>Dónde acaba cada equipo</h2>
       <p class="seccion-intro">
@@ -813,7 +866,7 @@ tbody tr[data-equipo] { cursor: pointer; }
     <div class="marco"><table class="calor" id="calor"></table></div>
   </section>
 
-  <section class="seccion" id="seccion-calendario" data-plegable>
+  <section class="seccion" id="seccion-calendario">
     <div class="cabecera-seccion">
       <h2>Calendario y escenarios</h2>
       <p class="seccion-intro" id="intro-calendario"></p>
@@ -838,7 +891,7 @@ tbody tr[data-equipo] { cursor: pointer; }
     </div>
   </section>
 
-  <section class="seccion" id="seccion-europa" data-plegable>
+  <section class="seccion" id="seccion-europa">
     <div class="cabecera-seccion">
       <h2>Competiciones europeas</h2>
       <p class="seccion-intro" id="intro-europa"></p>
@@ -846,7 +899,7 @@ tbody tr[data-equipo] { cursor: pointer; }
     <div id="europa"></div>
   </section>
 
-  <section class="seccion" id="seccion-partidos" data-plegable>
+  <section class="seccion" id="seccion-partidos">
     <div class="cabecera-seccion">
       <h2>Próximos partidos</h2>
       <p class="seccion-intro" id="intro-partidos"></p>
@@ -988,7 +1041,14 @@ tbody tr[data-equipo] { cursor: pointer; }
     { timeZone: "Europe/Madrid", weekday: "short", day: "numeric", month: "short" });
   const fechaLocal = (isoUtc, iso) =>
     (isoUtc ? formatoFechaHora.format(new Date(isoUtc)) : fechaCorta(iso));
-  const celdaProb = (v) => el("td", v >= 0.5 ? "prob-alta" : v < 0.001 ? "prob-nula" : "", pct(v));
+  // La etiqueta es el nombre de la columna. En movil la tabla se recompone en
+  // fichas y la cabecera desaparece, asi que cada cifra tiene que llevar
+  // encima de que es; se pinta desde CSS con `attr(data-etiqueta)`.
+  const celdaProb = (v, etiqueta) => {
+    const celda = el("td", v >= 0.5 ? "prob-alta" : v < 0.001 ? "prob-nula" : "", pct(v));
+    if (etiqueta) celda.dataset.etiqueta = etiqueta;
+    return celda;
+  };
   const reglasBasePlazas = {
     ucl: [1, 4],
     uel: [5, 5],
@@ -1150,9 +1210,14 @@ tbody tr[data-equipo] { cursor: pointer; }
           <div class="tramo" style="left:${escala(p.p05)}%;width:${escala(p.p95) - escala(p.p05)}%"></div>
           <div class="mediana" style="left:${escala(p.median)}%"></div>
         </div>`;
+      const celdaProyeccion = el("td", null,
+        `<b>${puntosProyectados(p.mean)}</b><br><span style="color:var(--ink-faint);font-size:0.78em">${puntosProyectados(p.p05)}–${puntosProyectados(p.p95)}</span>`);
+      celdaProyeccion.dataset.etiqueta = "Puntos al final";
       const hipoteticos = t.current.scenario_matches || 0;
       const celdaJ = el("td", hipoteticos ? "con-hipotesis" : "", String(t.current.played));
       const celdaPts = el("td", hipoteticos ? "con-hipotesis" : "", String(t.current.points));
+      celdaJ.dataset.etiqueta = "J";
+      celdaPts.dataset.etiqueta = "Pts";
       if (hipoteticos) {
         const reales = t.current.played - hipoteticos;
         const detalle = reales === 0
@@ -1168,14 +1233,13 @@ tbody tr[data-equipo] { cursor: pointer; }
         celdaEquipo(t),
         celdaJ,
         celdaPts,
-        el("td", null,
-           `<b>${puntosProyectados(p.mean)}</b><br><span style="color:var(--ink-faint);font-size:0.78em">${puntosProyectados(p.p05)}–${puntosProyectados(p.p95)}</span>`),
+        celdaProyeccion,
         barra,
-        celdaProb(t.outcomes.title),
-        celdaProb(o.ucl),
-        celdaProb(o.uel),
-        celdaProb(o.uecl),
-        celdaProb(o.relegation),
+        celdaProb(t.outcomes.title, "Título"),
+        celdaProb(o.ucl, "Champions"),
+        celdaProb(o.uel, "Europa L."),
+        celdaProb(o.uecl, "Conference"),
+        celdaProb(o.relegation, "Descenso"),
       );
       hacerClicable(tr, t.team_id);
       cuerpo.append(tr);
@@ -1240,6 +1304,7 @@ tbody tr[data-equipo] { cursor: pointer; }
       const aviso = document.getElementById("aviso-estatico");
       aviso.hidden = false;
       aviso.style.display = "block";
+      aviso.classList.remove("aviso-fino");   // esto si es una advertencia
       aviso.innerHTML = `<b>No se pudo dibujar la sección «${nombre}».</b> ` +
         `El resto del panel es correcto. Detalle: <code>${err.message}</code>`;
     }
@@ -1504,150 +1569,92 @@ tbody tr[data-equipo] { cursor: pointer; }
     t.append(cuerpo);
   }
 
-  // ------------------------------------------- secciones plegables y barra
+  // ------------------------------------------------------------ pestanas
   //
-  // El panel entero eran doce pantallas y media de movil, y dos secciones
-  // —Europa y proximos partidos— se llevaban el 55%. Plegadas de salida
-  // quedan cuatro, y la barra de arriba pone cada una a un toque en vez de a
-  // seis pantallas de scroll.
+  // Las cinco secciones apiladas eran doce pantallas y media de movil. En
+  // pestanas se ve solo la que se ha pedido, y la barra —que se queda arriba al
+  // bajar— hace de indice: se cambia de seccion sin volver al principio.
   //
-  // Que este plegado se recuerda: quien vive en la seccion europea se la
-  // encuentra abierta la segunda vez.
+  // Cada pestana puede llevar mas de una seccion (la tabla arrastra consigo el
+  // resumen de tarjetas, que habla de ella). Se recuerda cual estaba abierta.
   const SECCIONES = [
-    { id: "seccion-tablas", plegable: false },
-    { id: "seccion-calor", abierta: false,
-      cuantos: () => `${doc.competitions.ESP1.n_teams} equipos × ${doc.competitions.ESP1.n_teams} puestos` },
-    { id: "seccion-calendario", abierta: true,
-      cuantos: () => `${doc.calendar.matchdays.length} jornadas` },
-    { id: "seccion-europa", abierta: false,
-      cuantos: () => {
-        const n = Object.values(doc.competitions).filter(c => c.type === "uefa_league_phase").length;
-        return n === 1 ? "1 competición" : `${n} competiciones`;
-      } },
-    { id: "seccion-partidos", abierta: false,
-      cuantos: () => `${doc.fixtures.length} partidos` },
+    { clave: "tabla", nombre: "Tabla", secciones: ["resumen", "seccion-tablas"] },
+    { clave: "calor", nombre: "Dónde acaba", secciones: ["seccion-calor"] },
+    { clave: "calendario", nombre: "Calendario", secciones: ["seccion-calendario"] },
+    { clave: "europa", nombre: "Europa", secciones: ["seccion-europa"] },
+    { clave: "partidos", nombre: "Partidos", secciones: ["seccion-partidos"] },
   ];
 
-  const memoriaSecciones = {
-    clave: "simliga:secciones",
-    leer() {
-      try { return JSON.parse(localStorage.getItem(this.clave)) || {}; }
-      catch (e) { return {}; }
-    },
-    guardar(id, abierta) {
-      try {
-        const mapa = this.leer();
-        mapa[id] = abierta;
-        localStorage.setItem(this.clave, JSON.stringify(mapa));
-      } catch (e) { /* navegacion privada: solo deja de recordarlo */ }
-    },
+  const memoriaPestana = {
+    clave: "simliga:seccion",
+    leer() { try { return localStorage.getItem(this.clave); } catch (e) { return null; } },
+    escribir(v) { try { localStorage.setItem(this.clave, v); } catch (e) { /* privada */ } },
   };
 
-  const abridores = new Map();          // id -> funcion que la abre
+  // Una seccion puede estar oculta porque no hay datos (sin calendario, sin
+  // sorteo europeo). Eso lo decide quien la pinta con `hidden`, asi que las
+  // pestanas usan una clase aparte para no pisarselo.
+  const seccionesDe = (p) => p.secciones
+    .map(id => document.getElementById(id)).filter(Boolean);
+  const pestanaTieneAlgo = (p) => seccionesDe(p).some(s => !s.hidden);
 
-  function montarPlegables() {
-    const recordado = memoriaSecciones.leer();
+  let pestanaActiva = null;
 
-    for (const cfg of SECCIONES) {
-      if (cfg.plegable === false) continue;
-      const seccion = document.getElementById(cfg.id);
-      const cabecera = seccion?.querySelector(".cabecera-seccion");
-      if (!cabecera || cabecera.querySelector(".plegar")) continue;
+  function activarSeccion(clave, moverFoco) {
+    const barra = document.getElementById("navegacion");
+    const disponibles = SECCIONES.filter(pestanaTieneAlgo);
+    const elegida = disponibles.find(p => p.clave === clave) || disponibles[0];
+    if (!elegida) return;
 
-      // El titulo y la intro pasan a una columna para poder poner el boton al
-      // lado; el HTML se queda como estaba.
-      const texto = el("div");
-      while (cabecera.firstChild) texto.append(cabecera.firstChild);
-      const cuantos = el("div", "cuantos");
-      texto.append(cuantos);
+    for (const p of SECCIONES) {
+      const dentro = p === elegida;
+      for (const seccion of seccionesDe(p)) seccion.classList.toggle("fuera-de-vista", !dentro);
+      const boton = barra.querySelector(`[data-pestana="${p.clave}"]`);
+      if (boton) {
+        boton.setAttribute("aria-selected", dentro ? "true" : "false");
+        boton.tabIndex = dentro ? 0 : -1;
+        if (dentro && moverFoco) boton.focus();
+      }
+    }
+    pestanaActiva = elegida.clave;
+    memoriaPestana.escribir(pestanaActiva);
+  }
 
-      const boton = el("button", "plegar");
+  function montarPestanas() {
+    const barra = document.getElementById("navegacion");
+    if (!barra) return;
+    barra.replaceChildren();
+
+    const disponibles = SECCIONES.filter(pestanaTieneAlgo);
+    for (const p of disponibles) {
+      const boton = el("button", "pestana-seccion", p.nombre);
       boton.type = "button";
-      boton.setAttribute("aria-controls", cfg.id);
-      const flecha = el("span", "flecha", "▾");
-      const etiqueta = el("span");
-      boton.append(flecha, etiqueta);
-      cabecera.append(texto, boton);
-
-      const aplicar = (abierta) => {
-        seccion.classList.toggle("plegada", !abierta);
-        boton.setAttribute("aria-expanded", abierta ? "true" : "false");
-        etiqueta.textContent = abierta ? "ocultar" : "ver";
-        const titulo = cabecera.querySelector("h2")?.textContent || "la sección";
-        boton.title = (abierta ? "Plegar " : "Desplegar ") + titulo.toLowerCase();
-        try { cuantos.textContent = cuantos.textContent || cfg.cuantos(); }
-        catch (e) { cuantos.textContent = ""; }
-      };
-
-      const abierta = cfg.id in recordado ? !!recordado[cfg.id] : cfg.abierta;
-      aplicar(abierta);
+      boton.setAttribute("role", "tab");
+      boton.dataset.pestana = p.clave;
       boton.addEventListener("click", () => {
-        const nueva = seccion.classList.contains("plegada");
-        aplicar(nueva);
-        memoriaSecciones.guardar(cfg.id, nueva);
+        activarSeccion(p.clave);
+        // Cambiar de seccion a media tabla y aterrizar en mitad de la nueva
+        // desorienta: se vuelve al principio del contenido.
+        barra.scrollIntoView({ block: "start" });
       });
-      abridores.set(cfg.id, () => { if (seccion.classList.contains("plegada")) boton.click(); });
+      barra.append(boton);
     }
-  }
+    barra.hidden = disponibles.length < 2;
 
-  function montarNavegacion() {
-    const barra = document.getElementById("navegacion");
-    if (!barra) return;
-    const enlaces = [...barra.querySelectorAll("a")];
+    // Flechas entre pestanas, como manda el patron de tablist.
+    barra.addEventListener("keydown", (evento) => {
+      const paso = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 }[evento.key];
+      if (paso === undefined) return;
+      evento.preventDefault();
+      const claves = disponibles.map(p => p.clave);
+      const i = claves.indexOf(pestanaActiva);
+      const destino = evento.key === "Home" ? 0
+        : evento.key === "End" ? claves.length - 1
+        : (i + paso + claves.length) % claves.length;
+      activarSeccion(claves[destino], true);
+    });
 
-    for (const enlace of enlaces) {
-      enlace.addEventListener("click", (evento) => {
-        const id = enlace.getAttribute("href").slice(1);
-        const destino = document.getElementById(id);
-        if (!destino) return;
-        evento.preventDefault();
-        // Ir a una seccion plegada y encontrarla cerrada seria un viaje en
-        // balde: se abre sola.
-        abridores.get(id)?.();
-        destino.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
-
-    // La seccion en la que se esta, resaltada. Se mira la ultima cuyo borde
-    // superior ya ha pasado por debajo de la barra; con IntersectionObserver
-    // una seccion plegada (que mide cuatro dedos) no se detecta bien.
-    let pendiente = false;
-    const marcar = () => {
-      pendiente = false;
-      const limite = barra.getBoundingClientRect().bottom + 12;
-      let actual = null;
-      for (const enlace of enlaces) {
-        const destino = document.getElementById(enlace.getAttribute("href").slice(1));
-        if (!destino || destino.hidden || enlace.hidden) continue;
-        if (destino.getBoundingClientRect().top <= limite) actual = enlace;
-      }
-      // Del todo arriba no ha pasado ninguna: se marca la primera, o la barra
-      // parece apagada justo cuando mas se mira.
-      if (!actual) actual = enlaces.find(e => !e.hidden) || null;
-      for (const enlace of enlaces) {
-        if (enlace === actual) enlace.setAttribute("aria-current", "true");
-        else enlace.removeAttribute("aria-current");
-      }
-    };
-    addEventListener("scroll", () => {
-      if (!pendiente) { pendiente = true; requestAnimationFrame(marcar); }
-    }, { passive: true });
-    addEventListener("resize", marcar);
-    marcar();
-  }
-
-  // Sin calendario, sin Europa o sin proximos partidos, esas secciones se
-  // ocultan solas; su enlace tiene que irse con ellas.
-  function sincronizarNavegacion() {
-    const barra = document.getElementById("navegacion");
-    if (!barra) return;
-    let visibles = 0;
-    for (const enlace of barra.querySelectorAll("a")) {
-      const destino = document.getElementById(enlace.getAttribute("href").slice(1));
-      enlace.hidden = !destino || destino.hidden;
-      if (!enlace.hidden) visibles += 1;
-    }
-    barra.hidden = visibles < 2;
+    activarSeccion(memoriaPestana.leer() || SECCIONES[0].clave);
   }
 
   // ------------------------------------------------------------ directo
@@ -2738,8 +2745,7 @@ tbody tr[data-equipo] { cursor: pointer; }
     const aviso = document.getElementById("aviso-estatico");
     aviso.hidden = false;
     aviso.innerHTML = motor
-      ? "<b>Esta copia simula sola</b> y sigue en directo los partidos en juego. " +
-        "Datos del <b>" + doc.as_of.date + "</b>." +
+      ? "Esta copia <b>simula sola</b> y <b>sigue los partidos en directo</b>. " +
         "<details><summary>Qué puede y qué no</summary>" +
         "El motor va incluido en la página, así que puedes cambiar el número de " +
         "simulaciones y poner resultados en el calendario sin nada detrás, también " +
@@ -2749,16 +2755,15 @@ tbody tr[data-equipo] { cursor: pointer; }
         "Para traer datos nuevos, abre el panel servido: " +
         "<code>python -m simliga servidor --temporada " + doc.season + "</code>" +
         "</details>"
-      : "<b>Este panel es una foto.</b> Para regenerar la simulación hace falta un " +
+      : "Este panel es <b>una foto</b>. Para regenerar la simulación hace falta un " +
         "proceso que ejecute Python: <code>python -m simliga servidor --temporada " +
         doc.season + "</code>";
+    aviso.classList.add("aviso-fino");
   }
 
   aplicarEscenarioGuardado();
   pintar();
-  montarPlegables();
-  sincronizarNavegacion();
-  montarNavegacion();
+  montarPestanas();
   seguirEnDirecto();
 
   // Las hipotesis guardadas se ven en el calendario nada mas abrir, pero las

@@ -574,17 +574,30 @@ empatados a puntos el motor cae al criterio de diferencia general (la tabla
 real sí resuelve el caso completo). Los empates triples son raros y el sesgo
 sobre las probabilidades finales es de décimas de punto porcentual.
 
-**El panel arranca plegado.** Entero son doce pantallas y media de móvil, y no
-está repartido: «Competiciones europeas» y «Próximos partidos» se llevaban el
-55% del scroll ellas dos solas. Así que las secciones largas arrancan plegadas
-—con una línea que dice lo que hay dentro—, hay una barra pegajosa arriba para
-saltar a cualquiera, y lo que se despliega se recuerda: quien viva en la
-sección europea se la encuentra abierta la segunda vez.
+**Una sección cada vez, y en móvil nada se arrastra.** El panel entero eran
+doce pantallas y media de móvil, y no estaba repartido: «Competiciones
+europeas» y «Próximos partidos» se llevaban el 55% del scroll ellas dos solas.
+Ahora las cinco secciones van en pestañas —Tabla, Dónde acaba, Calendario,
+Europa, Partidos— con la barra pegada arriba, que en una tabla de veinte filas
+es lo que permite cambiar de sección sin volver al principio. Se recuerda cuál
+estaba abierta. **Ninguna vista pasa de 6 pantallas y la mediana está en 2,5.**
 
-Con eso, y con las tres tablas europeas en pestañas y los próximos partidos
-empezando en seis en vez de veinte, **el panel pasa de 12,5 pantallas a 4,7**
-(en escritorio, de 5,3 a 3,7). Ningún dato desaparece: los veinte partidos
-siguen en el JSON y las tres competiciones siguen ahí, a un toque.
+Ocultar por pestaña usa una clase propia y no `hidden`, porque `hidden` ya lo
+usa quien pinta cada sección para decir que no hay datos (sin sorteo europeo,
+sin calendario). Con el mismo mecanismo para las dos cosas, volver de una
+pestaña resucitaba una sección que no tenía nada que enseñar.
+
+En móvil, la tabla de proyección medía 980 px contra 375 de pantalla y había
+que arrastrarla de lado para leer una fila. Ahora **se recompone en una ficha
+por equipo**, con cada cifra rotulada por el nombre de su columna
+(`data-etiqueta`), y el calendario se parte en dos alturas en vez de pedir 760
+px. No se pierde ni un dato —que era la razón por la que antes se arrastraba—,
+solo se apilan. Siguen arrastrándose la matriz de posiciones y las tablas
+europeas: una matriz de 20×20 es una matriz, y apilarla no la mejora.
+
+Las tres tablas europeas van en pestañas y los próximos partidos empiezan en
+seis en vez de veinte, con un botón para el resto. Los veinte siguen en el
+JSON: la copia sin conexión no pierde ninguno.
 
 Lo que **no** se ha hecho es apretar tipografías y paddings en general. Se gana
 poco, se toca todo y el panel se lee bien como está.
