@@ -127,7 +127,8 @@ def test_las_dos_simulaciones_dan_lo_mismo(documento):
 
     for equipo in salida["teams"]:
         ref = por_python[equipo["name"]]
-        for clave in ("title", "ucl", "relegation", "european_qualification"):
+        for clave in ("title", "ucl", "relegation", "european_qualification",
+                      "mid_table"):
             assert abs(equipo["outcomes"][clave] - ref["outcomes"][clave]) < banda, (
                 f"{equipo['name']} / {clave}: JS {equipo['outcomes'][clave]:.4f} "
                 f"vs Python {ref['outcomes'][clave]:.4f}")

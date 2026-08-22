@@ -63,7 +63,7 @@ def test_tiene_las_claves_de_primer_nivel_documentadas(documento):
                  "european_qualification",
                  "fixtures", "validation", "meta"}
     assert esperadas <= set(documento)
-    assert documento["schema_version"] == "1.11.0"
+    assert documento["schema_version"] == "1.12.0"
 
 
 def test_es_serializable_a_json(documento):
@@ -1215,3 +1215,41 @@ def test_el_reparto_de_europa_usa_las_plazas_de_la_temporada_pasada():
     cuerpo = fuente.split("def build_european_qualification(")[1].split("def _empezada")[0]
     assert "cfg.sim.ucl_slots_temporada_anterior" in cuerpo
     assert "ucl, uel, uecl = cfg.sim.ucl_slots," not in cuerpo
+
+
+# ----------------------------------------------------- la franja de en medio
+def test_salvado_es_ni_europa_ni_descenso(documento):
+    """No es el complemento de descender: los europeos tambien estan salvados."""
+    liga = documento["competitions"]["ESP1"]
+    reglas = liga["qualification_rules"]
+    assert reglas["mid_table"][0] == reglas["uecl"][1] + 1, "empieza donde acaba Europa"
+    assert reglas["mid_table"][1] == reglas["relegation"][0] - 1, "acaba donde empieza el descenso"
+
+    for equipo in liga["teams"]:
+        o = equipo["outcomes"]
+        probs = equipo["projection"]["position_probabilities"]
+        desde, hasta = reglas["mid_table"]
+        esperado = sum(probs[desde - 1:hasta])
+        assert o["mid_table"] == pytest.approx(esperado, abs=2e-4), equipo["name"]
+
+
+def test_las_cuatro_franjas_reparten_toda_la_tabla(documento):
+    """Europa + salvado + descenso tiene que sumar 1: no hay huecos ni solapes."""
+    for equipo in documento["competitions"]["ESP1"]["teams"]:
+        o = equipo["outcomes"]
+        total = o["european_qualification"] + o["mid_table"] + o["relegation"]
+        assert total == pytest.approx(1.0, abs=1e-3), equipo["name"]
+
+
+def test_el_panel_ensena_la_columna_salvado():
+    plantilla = _plantilla()
+    assert "<th>Salvado<span" in plantilla
+    assert 'celdaProb(o.mid_table, "Salvado " + rangoPuestos(reglas.mid_table))' in plantilla
+    assert 'mid_table: [uelHasta + 2, relegation[0] - 1],' in plantilla
+    assert '["Salvado", pct(o.mid_table), "ni Europa ni descenso"],' in plantilla
+
+
+def test_el_motor_js_tambien_calcula_salvado():
+    """Si no, la columna se vaciaria al pulsar «Regenerar» en el panel."""
+    motor = (pathlib.Path(contract.__file__).parent / "motor.js").read_text(encoding="utf-8")
+    assert "mid_table: suma(reglas.mid_table)," in motor

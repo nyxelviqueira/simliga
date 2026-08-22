@@ -300,7 +300,7 @@ tbody tr:hover td { background: var(--surface-alt); }
 /* Anchos declarados: con once columnas, dejar que el navegador reparta hace
    que los nombres largos empujen a las probabilidades y la tabla baile al
    regenerar con otros datos. */
-.tabla-liga { table-layout: fixed; min-width: 980px; }
+.tabla-liga { table-layout: fixed; min-width: 1064px; }
 /* Cuantos puestos cubre la columna. Sin esto, «Champions 16%» y «Europa L.
    12%» parecen comparables y no lo son: una casilla vale por cuatro puestos y
    la otra por uno. */
@@ -1072,6 +1072,9 @@ tbody tr[data-equipo] { cursor: pointer; }
       ucl: [1, uclHasta],
       uel: [uclHasta + 1, uelHasta],
       uecl: [uelHasta + 1, uelHasta + 1],
+      // Ni Europa ni descenso: la temporada tranquila. Se mueve sola cuando se
+      // marcan las plazas extra, porque la frontera de arriba sube.
+      mid_table: [uelHasta + 2, relegation[0] - 1],
       relegation,
     };
   }
@@ -1119,6 +1122,7 @@ tbody tr[data-equipo] { cursor: pointer; }
       uel,
       uecl,
       european_qualification: ucl + uel + uecl,
+      mid_table: sumarRango(probs, reglas.mid_table),
       relegation: sumarRango(probs, reglas.relegation),
     };
   }
@@ -1207,7 +1211,8 @@ tbody tr[data-equipo] { cursor: pointer; }
     tabla.innerHTML = `<colgroup>
         <col class="c-pos"><col class="c-equipo"><col class="c-mini"><col class="c-mini">
         <col class="c-pts"><col class="c-barra">
-        <col class="c-prob"><col class="c-prob"><col class="c-prob"><col class="c-prob"><col class="c-prob">
+        <col class="c-prob"><col class="c-prob"><col class="c-prob">
+        <col class="c-prob"><col class="c-prob"><col class="c-prob">
       </colgroup>
       <thead><tr>
         <th>#</th><th>Equipo</th><th>J</th><th>Pts</th>
@@ -1216,6 +1221,7 @@ tbody tr[data-equipo] { cursor: pointer; }
         <th>Champions<span class="rango-puesto">${rangoPuestos(reglas.ucl)}</span></th>
         <th>Europa L.<span class="rango-puesto">${rangoPuestos(reglas.uel)}</span></th>
         <th>Conference<span class="rango-puesto">${rangoPuestos(reglas.uecl)}</span></th>
+        <th>Salvado<span class="rango-puesto">${rangoPuestos(reglas.mid_table)}</span></th>
         <th>Descenso<span class="rango-puesto">${rangoPuestos(reglas.relegation)}</span></th>
       </tr></thead>`;
     const cuerpo = el("tbody");
@@ -1259,6 +1265,7 @@ tbody tr[data-equipo] { cursor: pointer; }
         celdaProb(o.ucl, "Champions " + rangoPuestos(reglas.ucl)),
         celdaProb(o.uel, "Europa L. " + rangoPuestos(reglas.uel)),
         celdaProb(o.uecl, "Conference " + rangoPuestos(reglas.uecl)),
+        celdaProb(o.mid_table, "Salvado " + rangoPuestos(reglas.mid_table)),
         celdaProb(o.relegation, "Descenso " + rangoPuestos(reglas.relegation)),
       );
       hacerClicable(tr, t.team_id);
@@ -2532,6 +2539,7 @@ tbody tr[data-equipo] { cursor: pointer; }
       ["Champions", pct(o.ucl), ""],
       ["Europa League", pct(o.uel), ""],
       ["Conference", pct(o.uecl), ""],
+      ["Salvado", pct(o.mid_table), "ni Europa ni descenso"],
       ["Descenso", pct(o.relegation), ""],
     ]) {
       const d = el("div");

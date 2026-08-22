@@ -21,7 +21,7 @@ from ..sim.league import LeagueSimResult
 from ..sim.uefa import UefaSimResult
 from .team_identity import team_identity
 
-SCHEMA_VERSION = "1.11.0"
+SCHEMA_VERSION = "1.12.0"
 ENGINE_VERSION = "0.7.0"
 
 COMPETITION_NAMES = {
@@ -118,6 +118,11 @@ def build_league_block(
     standings = _current_standings(played, result.team_ids, real_ids)
     ucl, uel, uecl = cfg.sim.ucl_slots, cfg.sim.uel_slots, cfg.sim.uecl_slots
     releg_from = n - cfg.sim.relegation_slots + 1
+    # La franja de en medio: ni Europa ni descenso. No es el complemento de
+    # "desciende", que incluiria tambien a los europeos; es el "temporada
+    # tranquila", que para la mayoria de los equipos es el desenlace mas
+    # probable y hasta ahora no aparecia por ningun lado.
+    mid_from, mid_to = ucl + uel + uecl + 1, releg_from - 1
 
     p_pos = result.position_probabilities()
     teams = []
@@ -151,6 +156,8 @@ def build_league_block(
                 "uel": round(float(((pos > ucl) & (pos <= ucl + uel)).mean()), 5),
                 "uecl": round(float(((pos > ucl + uel) & (pos <= ucl + uel + uecl)).mean()), 5),
                 "european_qualification": round(float((pos <= ucl + uel + uecl).mean()), 5),
+                "mid_table": round(float(((pos >= mid_from) & (pos <= mid_to)).mean()), 5)
+                             if mid_to >= mid_from else 0.0,
                 "relegation": round(float((pos >= releg_from).mean()), 5),
             },
         })
@@ -165,6 +172,7 @@ def build_league_block(
             "ucl": [1, ucl],
             "uel": [ucl + 1, ucl + uel],
             "uecl": [ucl + uel + 1, ucl + uel + uecl],
+            "mid_table": [mid_from, mid_to],
             "relegation": [releg_from, n],
         },
         "qualification_note": laliga_qualification_note(ucl),

@@ -1,6 +1,6 @@
 # Contrato de datos — salida del simulador
 
-**Versión de esquema:** `1.11.0` · **Formato:** un único fichero JSON, UTF-8
+**Versión de esquema:** `1.12.0` · **Formato:** un único fichero JSON, UTF-8
 
 Este documento describe el JSON que produce el motor de simulación. Está pensado
 para que se pueda construir un dashboard **sin leer el código del motor**. Si
@@ -43,7 +43,7 @@ Se genera con:
 
 ```jsonc
 {
-  "schema_version": "1.11.0",
+  "schema_version": "1.12.0",
   "engine_version": "0.7.0",
   "generated_at": "2026-08-19T21:14:05Z",
   "season": "2024-25",
@@ -135,6 +135,7 @@ Códigos: `ESP1` (LaLiga), `ESP2` (Hypermotion), `UCL`, `UEL`, `UECL`.
     "ucl":        [1, 4],       // las plazas FIJAS; la 5a depende del EPS del año en curso
     "uel":        [5, 5],       // la otra UEL es la del campeón de Copa, que va aparte
     "uecl":       [6, 6],
+    "mid_table":  [7, 17],      // ni Europa ni descenso
     "relegation": [18, 20]
   },
   "qualification_note": "Reparto europeo provisional: ...",
@@ -196,6 +197,7 @@ supuestos con checks y recalcula las probabilidades europeas desde
     "uel": 0.003,
     "uecl": 0.0002,
     "european_qualification": 1.0,
+    "mid_table": 0.0,           // acaba entre el 7o y el 17o: ni Europa ni descenso
     "relegation": 0.0
   }
 }

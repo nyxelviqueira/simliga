@@ -396,6 +396,9 @@
           title: redondear(probs[0], 5),
           ucl: ucl, uel: uel, uecl: uecl,
           european_qualification: redondear(ucl + uel + uecl, 5),
+          // Ni Europa ni descenso. `suma` devuelve 0 si el rango no viene, asi
+          // que un documento de un esquema anterior no rompe nada.
+          mid_table: suma(reglas.mid_table),
           relegation: suma(reglas.relegation),
         },
       };
