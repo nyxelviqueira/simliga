@@ -574,6 +574,30 @@ empatados a puntos el motor cae al criterio de diferencia general (la tabla
 real sí resuelve el caso completo). Los empates triples son raros y el sesgo
 sobre las probabilidades finales es de décimas de punto porcentual.
 
+**El directo lo sigue el panel, no el workflow.** Para ver un marcador en vivo
+hacen falta refrescos de un minuto, y por Actions no salen: GitHub no baja de
+cinco minutos entre ejecuciones programadas, se salta unas cuantas cuando va
+cargado, y cada refresco costaria ademas un despliegue entero de Pages, que no
+se puede repetir dentro de un mismo trabajo.
+
+ESPN, en cambio, permite CORS desde cualquier origen y sirve su marcador con
+`Cache-Control: max-age=10`: está hecho para que lo pregunte un navegador. Así
+que la página publicada se lo pide ella misma cada tres cuartos de minuto
+mientras haya un partido en juego. No gasta un minuto de Actions ni un
+despliegue, y llega antes.
+
+Se le pide **solo el día**, no la temporada: 41 KB en vez de 2,7 MB, sesenta y
+siete veces menos, que sondeando a menudo deja de ser un detalle. Y los partidos
+se casan por `espn_event_id`, no por nombre de equipo, que es de donde salen las
+fichas duplicadas y lo último que conviene repetir en el navegador.
+
+Lo que **no** hace es tocar la proyección. Un resultado en vivo no cuenta hasta
+el pitido final —la misma regla que aplica el motor—, así que las probabilidades
+siguen siendo las de la última publicación. Cuando el partido termina de verdad,
+la publicación siguiente lo mete en el modelo y ahí sí cambian. Por eso no hay
+que resimular para seguir un partido: seguirlo y simularlo son dos cosas
+distintas, y solo la segunda cuesta.
+
 **La identidad de un equipo es su `team_id`, nunca su nombre.** Los partidos
 guardan dos identificadores, y el nombre solo se usa para pintar. El problema
 no es ese, sino la puerta: football-data.co.uk no publica identificadores, solo

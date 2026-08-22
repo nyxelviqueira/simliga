@@ -259,3 +259,66 @@ def test_sin_hora_el_campo_va_a_nulo():
         kickoff_utc = None
 
     assert contract._hora_iso(Fila()) is None
+
+
+# ------------------------------------------------- sondeo barato de un dia
+def test_preguntar_por_un_dia_pide_solo_ese_dia(monkeypatch):
+    """La respuesta de la temporada entera pesa 2,7 MB; la de un dia, 41 KB.
+
+    Sondeando cada tres cuartos de minuto la diferencia deja de ser un detalle.
+    """
+    pedidas = []
+
+    class Respuesta:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return {"events": []}
+
+    monkeypatch.setattr(espn.requests, "get",
+                        lambda url, **k: (pedidas.append(url), Respuesta())[1])
+
+    espn.descargar_dias(["2026-08-22"])
+    assert pedidas[-1].endswith("dates=20260822")
+
+    espn.descargar_dias(["2026-08-23", "2026-08-22"])
+    assert pedidas[-1].endswith("dates=20260822-20260823"), "de la primera fecha a la ultima"
+
+
+def test_un_dia_suelto_no_se_guarda_en_disco(monkeypatch, tmp_path):
+    """El marcador que se viene a buscar caduca en segundos: cachearlo estorba."""
+    class Respuesta:
+        content = b'{"events": []}'
+        def raise_for_status(self): pass
+        def json(self): return {"events": []}
+
+    monkeypatch.setattr(espn, "RAW_DIR", tmp_path)
+    monkeypatch.setattr(espn.requests, "get", lambda url, **k: Respuesta())
+    espn.descargar_dias(["2026-08-22"])
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_el_id_del_evento_se_guarda_para_poder_seguirlo(tmp_path, monkeypatch):
+    """Sin el, el panel tendria que casar los partidos por nombre de equipo.
+
+    Que es justo de donde salen las fichas duplicadas cuando una fuente cambia
+    de grafia, y ademas obligaria a repetir esa logica en el navegador.
+    """
+    conn = connect(tmp_path / "simliga.sqlite")
+    local = get_or_create_team(conn, "Atletico de Madrid")
+    visitante = get_or_create_team(conn, "Malaga CF")
+    for alias, tid in (("Atlético Madrid", local), ("Málaga", visitante)):
+        conn.execute("INSERT INTO team_aliases (alias, source, team_id) VALUES (?, ?, ?)",
+                     (alias, "espn", tid))
+    upsert_match(
+        conn, competition="ESP1", season="2026-27", stage="league",
+        match_date="2026-08-19", matchday=1, home_team_id=local,
+        away_team_id=visitante, home_goals=None, away_goals=None,
+        status="scheduled", source="openfootball/espana",
+    )
+
+    con_id = copy.deepcopy(RESPUESTA_EN_JUEGO)
+    con_id["events"][0]["id"] = "401882912"
+    monkeypatch.setattr(espn, "descargar", lambda *a, **k: con_id)
+
+    espn.update_schedule(conn, "2026-27")
+    assert conn.execute("SELECT espn_event_id FROM matches").fetchone()[0] == "401882912"

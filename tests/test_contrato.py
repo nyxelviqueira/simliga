@@ -63,7 +63,7 @@ def test_tiene_las_claves_de_primer_nivel_documentadas(documento):
                  "european_qualification",
                  "fixtures", "validation", "meta"}
     assert esperadas <= set(documento)
-    assert documento["schema_version"] == "1.10.0"
+    assert documento["schema_version"] == "1.11.0"
 
 
 def test_es_serializable_a_json(documento):
@@ -1017,3 +1017,65 @@ def test_una_jornada_entera_se_marca_en_verde():
     """Verde es el color de lo ya conseguido en el resto del panel (`--ucl`)."""
     plantilla = _plantilla()
     assert '.jornada-btn[data-estado="played"] { box-shadow: inset 0 -3px 0 var(--ucl); }' in plantilla
+
+
+# ------------------------------------------------- seguimiento en directo
+def test_el_calendario_publica_el_id_del_evento_en_espn():
+    """Es la identidad con la que el panel sigue un partido sin casar nombres."""
+    from tests.utiles import documento_de_prueba
+
+    cal = documento_de_prueba(n_sims=200, jugadas=2)["calendar"]
+    for bloque in cal["matchdays"]:
+        for partido in bloque["matches"]:
+            assert "espn_event_id" in partido, "la clave no puede faltar segun el caso"
+
+
+def test_el_panel_sigue_el_directo_contra_espn_y_no_contra_el_workflow():
+    """Refrescar la pagina publicada costaria un despliegue entero de Pages.
+
+    ESPN permite CORS y sirve con `Cache-Control: max-age=10`: preguntarle
+    desde el navegador sale gratis y llega antes.
+    """
+    plantilla = _plantilla()
+    assert "site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard" in plantilla
+    assert "function seguirEnDirecto()" in plantilla
+    assert "seguirEnDirecto();" in plantilla
+
+
+def test_el_directo_casa_los_partidos_por_id_y_no_por_nombre():
+    plantilla = _plantilla()
+    assert "porId.get(String(m.espn_event_id))" in plantilla
+
+
+def test_el_directo_no_toca_la_proyeccion():
+    """Un resultado en vivo no cuenta hasta el pitido final, como en el motor.
+
+    El bucle solo escribe en los campos `live_*` y en `status`; si algun dia
+    tocara `home_goals`, la tabla ensenaria puntos que no estan ganados.
+    """
+    plantilla = _plantilla()
+    cuerpo = plantilla.split("async function refrescarDirecto()")[1].split("\n  }")[0]
+    for prohibido in ("m.home_goals =", "m.away_goals =", "doc.competitions"):
+        assert prohibido not in cuerpo, f"el directo no debe escribir en {prohibido}"
+
+
+def test_el_service_worker_no_cachea_lo_que_no_es_suyo():
+    """El marcador en directo caduca en segundos: guardarlo llena la cache."""
+    import inspect
+
+    from simliga.output import dashboard
+
+    fuente = inspect.getsource(dashboard.write_mobile_assets)
+    assert "!== self.location.origin) return;" in fuente
+
+
+def test_un_partido_acabado_que_el_modelo_aun_no_tiene_no_dice_en_juego():
+    """ESPN da «FT» antes de que la publicacion recoja el resultado.
+
+    Ensenarlo como «en juego · FT» es contradictorio, y ensenarlo como jugado
+    seria mentira: todavia no cuenta para la proyeccion.
+    """
+    plantilla = _plantilla()
+    assert "m.live_final = marcador.completado;" in plantilla
+    assert 'else if (enJuego && m.live_final) {' in plantilla
+    assert 'el("span", "insignia insignia-live", "final")' in plantilla

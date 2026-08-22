@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS matches (
     live_home_goals INTEGER,
     live_away_goals INTEGER,
     live_detail  TEXT,
+    espn_event_id TEXT,                  -- id del evento en ESPN, para seguirlo en directo
     source       TEXT,
     UNIQUE (competition, season, stage, home_team_id, away_team_id)
 );
@@ -125,6 +126,7 @@ MIGRACIONES = (
     ("matches", "live_home_goals", "INTEGER"),
     ("matches", "live_away_goals", "INTEGER"),
     ("matches", "live_detail", "TEXT"),
+    ("matches", "espn_event_id", "TEXT"),
 )
 
 

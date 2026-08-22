@@ -28,6 +28,7 @@ def load_matches(
                m.kickoff_utc, m.matchday,
                m.home_team_id, m.away_team_id, m.home_goals, m.away_goals, m.status,
                m.live_home_goals, m.live_away_goals, m.live_detail,
+               m.espn_event_id,
                th.name AS home_team, ta.name AS away_team
         FROM matches m
         JOIN teams th ON th.team_id = m.home_team_id

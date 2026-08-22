@@ -21,7 +21,7 @@ from ..sim.league import LeagueSimResult
 from ..sim.uefa import UefaSimResult
 from .team_identity import team_identity
 
-SCHEMA_VERSION = "1.10.0"
+SCHEMA_VERSION = "1.11.0"
 ENGINE_VERSION = "0.7.0"
 
 COMPETITION_NAMES = {
@@ -350,6 +350,14 @@ def _hora_iso(fila) -> str | None:
     return f"{fecha}T{hora}:00Z"
 
 
+def _texto(valor) -> str | None:
+    """Un campo de texto que puede venir vacio de la base o como NaN de pandas."""
+    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+        return None
+    texto = str(valor).strip()
+    return texto or None
+
+
 def build_standings_block(
     played: pd.DataFrame,
     all_teams: list[str],
@@ -600,6 +608,10 @@ def build_calendar_block(
             "date": pd.Timestamp(m.match_date).strftime("%Y-%m-%d"),
             "kickoff_utc": _hora_iso(m),
             "date_provisional": bool(provisional.get(m.Index, False)),
+            # El id del evento en ESPN. Con el, el panel puede seguir el
+            # partido en directo sin volver a casar nombres de equipo, que es
+            # de donde salen las fichas duplicadas.
+            "espn_event_id": _texto(getattr(m, "espn_event_id", None)),
             "status": estado,
             "home_team": {
                 "team_id": int(m.home_team_id),

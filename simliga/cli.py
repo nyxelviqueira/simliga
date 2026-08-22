@@ -548,28 +548,34 @@ def cmd_esperar_resultados(args) -> int:
     # solo que aqui se mide en minutos en vez de en dias.
     ventana = args.frescura / (24 * 60)
 
-    def pendientes() -> set[int]:
-        df = partidos_por_actualizar(conn, args.temporada, antiguedad_maxima_dias=ventana)
-        return set(df["match_id"])
+    def sin_resultado():
+        return partidos_por_actualizar(conn, args.temporada, antiguedad_maxima_dias=ventana)
 
-    esperados = pendientes()
+    df = sin_resultado()
+    esperados = set(df["match_id"])
     if not esperados:
         print("Ningun partido recien terminado: no hay resultado que esperar.")
         return 0
 
+    # A ESPN se le piden solo los dias de los partidos que se esperan, no la
+    # temporada. La respuesta pasa de 2,7 MB a unos 40 KB, y aqui se pregunta
+    # una y otra vez: pedir 380 partidos para mirar uno es lo que hacia caro
+    # sondear a menudo.
+    dias = sorted({str(f)[:10] for f in df["match_date"]})
+
     print(f"{len(esperados)} partido(s) recien terminados sin resultado.")
-    print(f"Sondeando ESPN cada {args.cada}s, {args.limite}s como mucho.")
+    print(f"Sondeando ESPN ({', '.join(dias)}) cada {args.cada}s, {args.limite}s como mucho.")
 
     comienzo = time.monotonic()
     while True:
         try:
-            update_schedule(conn, args.temporada, force_download=True)
+            update_schedule(conn, args.temporada, dias=dias)
         except Exception as exc:                      # noqa: BLE001
             # Un fallo de red no cancela la espera: suele ser pasajero y queda
             # tiempo de sobra para volver a intentarlo.
             print(f"  aviso: ESPN no responde ({exc})")
         else:
-            llegados = esperados - pendientes()
+            llegados = esperados - set(sin_resultado()["match_id"])
             if llegados:
                 espera = time.monotonic() - comienzo
                 print(f"  {len(llegados)} resultado(s) recibido(s) tras {espera:.0f}s.")

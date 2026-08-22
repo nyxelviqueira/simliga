@@ -1,6 +1,6 @@
 # Contrato de datos — salida del simulador
 
-**Versión de esquema:** `1.10.0` · **Formato:** un único fichero JSON, UTF-8
+**Versión de esquema:** `1.11.0` · **Formato:** un único fichero JSON, UTF-8
 
 Este documento describe el JSON que produce el motor de simulación. Está pensado
 para que se pueda construir un dashboard **sin leer el código del motor**. Si
@@ -43,7 +43,7 @@ Se genera con:
 
 ```jsonc
 {
-  "schema_version": "1.10.0",
+  "schema_version": "1.11.0",
   "engine_version": "0.7.0",
   "generated_at": "2026-08-19T21:14:05Z",
   "season": "2024-25",
@@ -507,6 +507,7 @@ cada partido declara su estado, y solo los pendientes admiten hipotesis.
           "date": "2026-08-15",
           "kickoff_utc": "2026-08-15T17:30:00Z",
           "date_provisional": false,
+          "espn_event_id": "401882916", // id del evento en ESPN, o null
           "status": "played",           // played | live | scenario | pending
           "home_team": {
             "team_id": 4,
@@ -544,6 +545,20 @@ Los cuatro estados y lo que significan:
 
 Los partidos pendientes y de escenario traen ademas `probabilities` con la
 prediccion del modelo (1X2), util para ensenarla al lado del campo de entrada.
+
+**`espn_event_id` es para seguir el partido en directo.** El panel publicado
+es una foto y refrescarla cuesta un despliegue entero de Pages, asi que el
+directo lo sigue el navegador: le pide a ESPN el marcador del dia
+(`site.api.espn.com/.../scoreboard?dates=YYYYMMDD`, que permite CORS y sirve
+con `Cache-Control: max-age=10`) y casa los eventos por este id, nunca por
+nombre de equipo. Es `null` mientras ESPN no haya dado ese partido.
+
+Lo que se refresca asi son **solo** `live_home_goals`, `live_away_goals`,
+`live_detail` y `status`. La proyeccion no se toca, y es lo correcto: un
+resultado en vivo no cuenta hasta el pitido final, que es la misma regla que
+aplica el motor. Un partido ya terminado que la publicacion aun no ha recogido
+se ensena como `live` con «FT» de etiqueta: se ve el marcador, pero sigue sin
+contar.
 
 **`current_matchday` es por donde debe abrirse la vista de calendario.** No es
 lo mismo que "la primera jornada sin acabar": un partido aplazado deja su

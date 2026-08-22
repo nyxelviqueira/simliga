@@ -1428,6 +1428,143 @@ tbody tr[data-equipo] { cursor: pointer; }
     t.append(cuerpo);
   }
 
+  // ------------------------------------------------------------ directo
+  // El panel publicado es una foto, y refrescarla cuesta un despliegue entero
+  // de GitHub Pages: no baja del minuto y hay que provocarlo desde Actions.
+  // ESPN, en cambio, permite CORS desde cualquier origen y sirve su marcador
+  // con `Cache-Control: max-age=10`; esta hecho para que lo pregunte un
+  // navegador. Asi que el directo lo sigue esta pagina y no el workflow: no
+  // gasta un minuto de Actions ni un despliegue, y llega antes.
+  //
+  // Solo toca el marcador. La proyeccion no se mueve, y es correcto: un
+  // resultado en vivo no cuenta hasta el pitido final, que es la misma regla
+  // que aplica el motor. Cuando el partido termina de verdad, la publicacion
+  // siguiente lo mete en el modelo y ahi si cambian las probabilidades.
+  //
+  // Los partidos se casan por `espn_event_id`, no por nombre de equipo. Casar
+  // por nombre es de donde salen las fichas duplicadas cuando una fuente
+  // cambia de grafia, y aqui ademas seria el navegador quien tendria que
+  // repetir esa logica.
+  const ESPN_MARCADOR =
+    "https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard?dates=";
+  const DIRECTO_CADA_MS = 45000;
+  const DIRECTO_ANTES_MIN = 15;      // se empieza a mirar un cuarto de hora antes
+  const DIRECTO_DESPUES_MIN = 165;   // y se deja de mirar dos horas y tres cuartos despues
+
+  function partidosSeguibles() {
+    if (!doc.calendar) return [];
+    const ahora = Date.now();
+    const dentro = (m) => {
+      const t = Date.parse(m.kickoff_utc);
+      return Number.isFinite(t)
+        && ahora > t - DIRECTO_ANTES_MIN * 60000
+        && ahora < t + DIRECTO_DESPUES_MIN * 60000;
+    };
+    return doc.calendar.matchdays
+      .flatMap(b => b.matches)
+      .filter(m => m.espn_event_id && m.kickoff_utc
+        && m.status !== "played" && m.status !== "scenario" && dentro(m));
+  }
+
+  const numeroONaN = (v) =>
+    (v === null || v === undefined || v === "" ? NaN : Number(v));
+
+  function marcadorDelEvento(evento) {
+    const c = (evento.competitions || [])[0] || {};
+    const equipos = {};
+    for (const x of (c.competitors || [])) equipos[x.homeAway] = x;
+    if (!equipos.home || !equipos.away) return null;
+
+    const tipo = (c.status || {}).type || {};
+    const completado = !!tipo.completed;
+    const enJuego = !completado && String(tipo.state || "").toLowerCase() === "in";
+    if (!completado && !enJuego) return null;
+
+    const gl = numeroONaN(equipos.home.score);
+    const gv = numeroONaN(equipos.away.score);
+    if (!Number.isFinite(gl) || !Number.isFinite(gv)) return null;
+
+    // Un partido terminado que la publicacion aun no ha recogido se ensena
+    // igual que uno en juego, con su marcador y con «FT» de etiqueta: se ve el
+    // resultado, pero sigue sin contar para la proyeccion, que es la verdad.
+    return {
+      completado,
+      goles_local: gl, goles_visita: gv,
+      detalle: (completado ? (tipo.shortDetail || tipo.detail)
+                           : ((c.status || {}).displayClock || tipo.shortDetail)) || null,
+    };
+  }
+
+  async function refrescarDirecto() {
+    const seguibles = partidosSeguibles();
+    if (!seguibles.length) return;
+
+    const dias = [...new Set(seguibles.map(m => m.date.replace(/-/g, "")))].sort();
+    const rango = dias.length === 1 ? dias[0] : `${dias[0]}-${dias[dias.length - 1]}`;
+    const respuesta = await fetch(ESPN_MARCADOR + rango, { cache: "no-store" });
+    if (!respuesta.ok) throw new Error("ESPN respondio " + respuesta.status);
+    const datos = await respuesta.json();
+
+    const porId = new Map();
+    for (const evento of (datos.events || [])) porId.set(String(evento.id), evento);
+
+    let cambios = 0;
+    for (const m of seguibles) {
+      const evento = porId.get(String(m.espn_event_id));
+      if (!evento) continue;
+      const marcador = marcadorDelEvento(evento);
+      if (!marcador) continue;
+      if (m.status === "live"
+          && m.live_home_goals === marcador.goles_local
+          && m.live_away_goals === marcador.goles_visita
+          && m.live_detail === marcador.detalle
+          && !!m.live_final === marcador.completado) continue;
+
+      m.status = "live";
+      m.live_home_goals = marcador.goles_local;
+      m.live_away_goals = marcador.goles_visita;
+      m.live_detail = marcador.detalle;
+      // Marca de la pagina, no del contrato: el partido ha terminado pero su
+      // resultado todavia no esta en el modelo. Distinguirlo evita la etiqueta
+      // contradictoria «en juego · FT».
+      m.live_final = marcador.completado;
+      cambios += 1;
+    }
+    if (!cambios) return;
+
+    doc.calendar.live_count = doc.calendar.matchdays
+      .reduce((n, b) => n + b.matches.filter(m => m.status === "live").length, 0);
+    for (const b of doc.calendar.matchdays) {
+      b.live = b.matches.filter(m => m.status === "live").length;
+    }
+
+    // Repintar borraria un marcador que se este escribiendo a mano. Si hay una
+    // casilla del calendario con el foco, se deja para la vuelta siguiente.
+    const escribiendo = document.activeElement
+      && document.getElementById("encuentros")?.contains(document.activeElement);
+    if (!escribiendo) seguro("calendario en directo", pintarCalendario);
+  }
+
+  function seguirEnDirecto() {
+    let ocupado = false;
+    const vuelta = async () => {
+      if (ocupado || document.hidden) return;   // en segundo plano no se sondea
+      ocupado = true;
+      try {
+        await refrescarDirecto();
+      } catch (err) {
+        // Sin conexion o con ESPN caido no pasa nada: el panel sigue
+        // ensenando lo publicado, que es lo que hacia antes de todo esto.
+        console.debug("directo: no se pudo refrescar", err);
+      } finally {
+        ocupado = false;
+      }
+    };
+    setInterval(vuelta, DIRECTO_CADA_MS);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) vuelta(); });
+    vuelta();
+  }
+
   // --------------------------------------------------------- calendario
   let jornadaVista = null;
 
@@ -1523,6 +1660,11 @@ tbody tr[data-equipo] { cursor: pointer; }
       const extremo = el("div", "nota");
       if (jugado) {
         extremo.append(el("span", "insignia insignia-jugado", "jugado"));
+      } else if (enJuego && m.live_final) {
+        const insignia = el("span", "insignia insignia-live", "final");
+        insignia.title = "Marcador final según ESPN. Todavía no cuenta para la " +
+          "proyección: entra en el modelo con la próxima publicación.";
+        extremo.append(insignia);
       } else if (enJuego) {
         extremo.append(el("span", "insignia insignia-live", "en juego"));
         if (m.live_detail) extremo.append(el("span", "fecha", m.live_detail));
@@ -2323,10 +2465,12 @@ tbody tr[data-equipo] { cursor: pointer; }
     aviso.innerHTML = motor
       ? "<b>Esta copia simula sola.</b> El motor va incluido en la página, así que " +
         "puedes cambiar el número de simulaciones y poner resultados en el calendario " +
-        "sin nada detrás, también sin conexión. Lo que no puede es traer datos nuevos: " +
-        "los resultados son los del <b>" + doc.as_of.date + "</b>. Para actualizarlos, " +
-        "abre el panel servido: <code>python -m simliga servidor --temporada " +
-        doc.season + "</code>"
+        "sin nada detrás, también sin conexión. Los partidos que se estén jugando sí " +
+        "los sigue en directo, pidiéndole el marcador a ESPN cada tres cuartos de " +
+        "minuto; lo que no cambia es la proyección, porque un resultado en vivo no " +
+        "cuenta hasta el pitido final. Lo demás son los datos del <b>" +
+        doc.as_of.date + "</b>. Para actualizarlos, abre el panel servido: " +
+        "<code>python -m simliga servidor --temporada " + doc.season + "</code>"
       : "<b>Este panel es una foto.</b> Para regenerar la simulación hace falta un " +
         "proceso que ejecute Python: <code>python -m simliga servidor --temporada " +
         doc.season + "</code>";
@@ -2334,6 +2478,7 @@ tbody tr[data-equipo] { cursor: pointer; }
 
   aplicarEscenarioGuardado();
   pintar();
+  seguirEnDirecto();
 
   // Las hipotesis guardadas se ven en el calendario nada mas abrir, pero las
   // cifras de la tabla son todavia las de la ultima simulacion. Decirlo evita

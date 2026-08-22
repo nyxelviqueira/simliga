@@ -123,6 +123,10 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
+  // Solo se guarda lo propio. El marcador en directo se le pide a ESPN cada
+  // tres cuartos de minuto y caduca en segundos: cachearlo no sirve de nada
+  // sin conexion y llena la cache de respuestas viejas.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
     fetch(event.request)
       .then(response => {

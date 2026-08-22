@@ -60,6 +60,24 @@ def descargar(season: str, competition: str = COMP_LALIGA, force: bool = False) 
     return resp.json()
 
 
+def descargar_dias(fechas, competition: str = COMP_LALIGA) -> dict:
+    """Marcador de unos pocos dias sueltos, sin guardar nada en disco.
+
+    Para seguir un partido: la respuesta de la temporada entera pesa 2,7 MB y
+    la de un dia 41 KB, sesenta y siete veces menos. Y no se cachea a proposito,
+    porque el dato que se viene a buscar caduca en segundos.
+
+    `fechas` son ISO ('2026-08-22'). ESPN acepta varias en un rango, asi que se
+    pide del primer dia al ultimo en una sola peticion.
+    """
+    dias = sorted({f.replace("-", "") for f in fechas})
+    rango = dias[0] if len(dias) == 1 else f"{dias[0]}-{dias[-1]}"
+    url = f"{BASE_URL}/{LIGAS[competition]}/scoreboard?dates={rango}"
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    return resp.json()
+
+
 def _score(equipo: dict) -> int | None:
     valor = equipo.get("score")
     if valor is None or valor == "":
@@ -110,6 +128,7 @@ def parse(datos: dict) -> pd.DataFrame:
 
         marca = pd.Timestamp(evento["date"])          # viene en UTC
         filas.append({
+            "event_id": str(evento.get("id") or "") or None,
             "match_date": marca.strftime("%Y-%m-%d"),
             "kickoff_utc": marca.strftime("%H:%M"),
             "home": equipos["home"].get("team", {}).get("displayName"),
@@ -129,9 +148,18 @@ def update_schedule(
     season: str,
     competition: str = COMP_LALIGA,
     force_download: bool = False,
+    dias: list[str] | None = None,
 ) -> dict:
-    """Actualiza calendario y resultados finalizados. Devuelve un recuento."""
-    df = parse(descargar(season, competition, force_download))
+    """Actualiza calendario y resultados finalizados. Devuelve un recuento.
+
+    Con `dias` se pregunta solo por esas fechas en vez de por la temporada
+    entera. Es lo que usa quien esta esperando un resultado concreto: la
+    respuesta pasa de 2,7 MB a 41 KB y no hace falta nada mas para el partido
+    que se esta siguiendo.
+    """
+    datos = (descargar_dias(dias, competition) if dias
+             else descargar(season, competition, force_download))
+    df = parse(datos)
     if df.empty:
         return {"actualizados": 0, "resultados": 0, "en_juego": 0,
                 "sin_encontrar": 0, "total": 0}
@@ -155,11 +183,13 @@ def update_schedule(
                 """UPDATE matches
                    SET match_date = ?, kickoff_utc = ?, home_goals = ?,
                        away_goals = ?, status = 'played', source = ?,
+                       espn_event_id = COALESCE(?, espn_event_id),
                        live_home_goals = NULL, live_away_goals = NULL, live_detail = NULL
                    WHERE season = ? AND competition = ? AND stage = 'league'
                      AND home_team_id = ? AND away_team_id = ?""",
                 (fila.match_date, fila.kickoff_utc, int(fila.home_goals),
-                 int(fila.away_goals), SOURCE, season, competition, local, visitante),
+                 int(fila.away_goals), SOURCE, fila.event_id,
+                 season, competition, local, visitante),
             )
             if cur.rowcount:
                 actualizados += cur.rowcount
@@ -172,11 +202,12 @@ def update_schedule(
             cur = conn.execute(
                 """UPDATE matches
                    SET match_date = ?, kickoff_utc = ?, status = 'live', source = ?,
+                       espn_event_id = COALESCE(?, espn_event_id),
                        live_home_goals = ?, live_away_goals = ?, live_detail = ?
                    WHERE season = ? AND competition = ? AND stage = 'league'
                      AND home_team_id = ? AND away_team_id = ?
                      AND home_goals IS NULL""",
-                (fila.match_date, fila.kickoff_utc, SOURCE,
+                (fila.match_date, fila.kickoff_utc, SOURCE, fila.event_id,
                  int(fila.live_home_goals), int(fila.live_away_goals),
                  fila.live_detail, season, competition, local, visitante),
             )
@@ -190,12 +221,14 @@ def update_schedule(
         cur = conn.execute(
             """UPDATE matches
                SET match_date = ?, kickoff_utc = ?,
+                   espn_event_id = COALESCE(?, espn_event_id),
                    status = CASE WHEN home_goals IS NULL THEN 'scheduled' ELSE status END,
                    live_home_goals = NULL, live_away_goals = NULL, live_detail = NULL
                WHERE season = ? AND competition = ? AND stage = 'league'
                  AND home_team_id = ? AND away_team_id = ?
                  AND home_goals IS NULL""",
-            (fila.match_date, fila.kickoff_utc, season, competition, local, visitante),
+            (fila.match_date, fila.kickoff_utc, fila.event_id,
+             season, competition, local, visitante),
         )
         if cur.rowcount:
             actualizados += cur.rowcount
@@ -204,10 +237,11 @@ def update_schedule(
         # Ya jugado: se le pone la hora, pero no se le toca la fecha. Esa la
         # manda el resultado, que es el que sabe cuando se disputo de verdad.
         cur = conn.execute(
-            """UPDATE matches SET kickoff_utc = ?
+            """UPDATE matches SET kickoff_utc = ?,
+                   espn_event_id = COALESCE(?, espn_event_id)
                WHERE season = ? AND competition = ? AND stage = 'league'
                  AND home_team_id = ? AND away_team_id = ?""",
-            (fila.kickoff_utc, season, competition, local, visitante),
+            (fila.kickoff_utc, fila.event_id, season, competition, local, visitante),
         )
         if cur.rowcount:
             actualizados += cur.rowcount
