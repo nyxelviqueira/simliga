@@ -32,6 +32,7 @@
   --ink:         #10161C;
   --ink-soft:    #5A6672;
   --ink-faint:   #8B96A2;
+  --fondo-barra: rgba(247, 248, 250, 0.88);
   --line:        #D8DEE4;
   --line-strong: #BCC6D0;
   --accent:      #8E2437;
@@ -50,6 +51,7 @@
   :root:not([data-theme="light"]) {
     --ground: #0D1116; --surface: #151B22; --surface-alt: #1C242D;
     --ink: #E8EDF2; --ink-soft: #93A1AE; --ink-faint: #6B7885;
+    --fondo-barra: rgba(13, 17, 22, 0.88);
     --line: #262F38; --line-strong: #38434F;
     --accent: #E05A72; --accent-ink: #1A0A0F; --heat: 224, 90, 114;
     --ucl: #4FB894; --uel: #D9A441; --uecl: #8FAFCC; --drop: #E0705F;
@@ -58,6 +60,7 @@
 :root[data-theme="dark"] {
   --ground: #0D1116; --surface: #151B22; --surface-alt: #1C242D;
   --ink: #E8EDF2; --ink-soft: #93A1AE; --ink-faint: #6B7885;
+  --fondo-barra: rgba(13, 17, 22, 0.88);
   --line: #262F38; --line-strong: #38434F;
   --accent: #E05A72; --accent-ink: #1A0A0F; --heat: 224, 90, 114;
   --ucl: #4FB894; --uel: #D9A441; --uecl: #8FAFCC; --drop: #E0705F;
@@ -188,6 +191,65 @@ button.secundario {
   font-family: "IBM Plex Mono", monospace; font-size: 0.82em;
   background: var(--surface-alt); padding: 0.1rem 0.35rem; border-radius: 4px;
 }
+.aviso details { margin-top: 0.4rem; }
+.aviso summary {
+  cursor: pointer; color: var(--accent);
+  font-family: Archivo, sans-serif; font-size: 0.85em; font-weight: 500;
+}
+.aviso details[open] summary { margin-bottom: 0.4rem; }
+
+/* ------------------------------------------------------------ navegacion --- */
+/* Se queda arriba al bajar. En movil las secciones largas van plegadas, asi
+   que esta barra es lo que las pone a un toque en vez de a seis pantallas. */
+.navegacion {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; gap: 0.25rem;
+  margin: 0 -0.25rem;
+  padding: 0.45rem 0.25rem;
+  overflow-x: auto;                      /* en movil se arrastran los enlaces */
+  scrollbar-width: none;
+  background: var(--fondo-barra);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.navegacion::-webkit-scrollbar { display: none; }
+.navegacion a {
+  flex: none;
+  padding: 0.35rem 0.7rem; border-radius: 999px;
+  font-family: Archivo, sans-serif; font-size: 0.82rem; font-weight: 500;
+  color: var(--ink-soft); text-decoration: none; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.navegacion a:hover { background: var(--surface-alt); color: var(--ink); }
+.navegacion a[aria-current="true"] {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+}
+/* Para que el ancla no aterrice debajo de la barra. */
+.seccion, .resumen { scroll-margin-top: 3.5rem; }
+
+/* ------------------------------------------------------- secciones plegables */
+.cabecera-seccion { display: flex; align-items: flex-start; gap: 0.75rem; }
+.cabecera-seccion > div:first-child { flex: 1; min-width: 0; }
+.plegar {
+  /* Desplegada, el boton va arriba con el titulo; una intro de cinco lineas lo
+     dejaba flotando en mitad del parrafo. Plegada, la cabecera es una linea y
+     el centro es su sitio. */
+  flex: none; align-self: flex-start;
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.6rem; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--ink-soft); font-family: Archivo, sans-serif; font-size: 0.78rem;
+}
+.plegar:hover { background: var(--surface-alt); color: var(--ink); }
+.plegar .flecha { transition: transform 0.15s ease; font-size: 0.7rem; }
+.seccion.plegada .plegar .flecha { transform: rotate(-90deg); }
+.seccion.plegada > *:not(.cabecera-seccion) { display: none; }
+/* Plegada, la seccion se queda en una linea: titulo y cuanto hay dentro. */
+.seccion.plegada .seccion-intro { display: none; }
+.seccion.plegada .cabecera-seccion { align-items: center; }
+.seccion.plegada .plegar { align-self: center; }
+.cuantos { color: var(--ink-faint); font-size: 0.8rem; margin-top: 0.15rem; }
+.seccion:not(.plegada) .cuantos { display: none; }
 
 /* --------------------------------------------------------------- resumen --- */
 .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
@@ -648,8 +710,12 @@ tbody tr[data-equipo] { cursor: pointer; }
   .procedencia { gap: 0.6rem 1.25rem; padding: 0.75rem 0.9rem; }
   .procedencia b { font-size: 0.95rem; }
   h1 { font-size: 1.7rem; }
-  .tarjeta { padding: 0.9rem 1rem; }
-  .tarjeta .cifra { font-size: 1.8rem; }
+  /* Dos tarjetas por fila en vez de una: el resumen pasa de media pantalla a
+     un cuarto sin que la cifra deje de leerse. */
+  .resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+  .tarjeta { padding: 0.75rem 0.8rem; gap: 0.4rem; }
+  .tarjeta .cifra { font-size: 1.6rem; }
+  .navegacion { margin: 0 -0.75rem; padding: 0.4rem 0.75rem; }
   .pestana { padding: 0.45rem 0.7rem; font-size: 0.85rem; }
   /* Aviso de que las tablas anchas se arrastran, que en movil no es obvio. */
   .marco { position: relative; }
@@ -686,6 +752,16 @@ tbody tr[data-equipo] { cursor: pointer; }
     </div>
     <div class="aviso" id="aviso-estatico" hidden></div>
   </header>
+
+  <!-- La barra se queda arriba al bajar. Con las secciones largas plegadas,
+       es lo que convierte doce pantallas de scroll en un toque. -->
+  <nav class="navegacion" id="navegacion" aria-label="Secciones del panel">
+    <a href="#seccion-tablas">Proyección</a>
+    <a href="#seccion-calor">Dónde acaba</a>
+    <a href="#seccion-calendario">Calendario</a>
+    <a href="#seccion-europa">Europa</a>
+    <a href="#seccion-partidos">Partidos</a>
+  </nav>
 
   <section class="resumen" id="resumen"></section>
 
@@ -724,8 +800,8 @@ tbody tr[data-equipo] { cursor: pointer; }
     </div>
   </section>
 
-  <section class="seccion">
-    <div>
+  <section class="seccion" id="seccion-calor" data-plegable>
+    <div class="cabecera-seccion">
       <h2>Dónde acaba cada equipo</h2>
       <p class="seccion-intro">
         Cada fila es un equipo y cada columna un puesto final. La cifra es el
@@ -737,8 +813,8 @@ tbody tr[data-equipo] { cursor: pointer; }
     <div class="marco"><table class="calor" id="calor"></table></div>
   </section>
 
-  <section class="seccion" id="seccion-calendario">
-    <div>
+  <section class="seccion" id="seccion-calendario" data-plegable>
+    <div class="cabecera-seccion">
       <h2>Calendario y escenarios</h2>
       <p class="seccion-intro" id="intro-calendario"></p>
     </div>
@@ -762,16 +838,16 @@ tbody tr[data-equipo] { cursor: pointer; }
     </div>
   </section>
 
-  <section class="seccion" id="seccion-europa">
-    <div>
+  <section class="seccion" id="seccion-europa" data-plegable>
+    <div class="cabecera-seccion">
       <h2>Competiciones europeas</h2>
       <p class="seccion-intro" id="intro-europa"></p>
     </div>
     <div id="europa"></div>
   </section>
 
-  <section class="seccion" id="seccion-partidos">
-    <div>
+  <section class="seccion" id="seccion-partidos" data-plegable>
+    <div class="cabecera-seccion">
       <h2>Próximos partidos</h2>
       <p class="seccion-intro" id="intro-partidos"></p>
     </div>
@@ -1428,6 +1504,152 @@ tbody tr[data-equipo] { cursor: pointer; }
     t.append(cuerpo);
   }
 
+  // ------------------------------------------- secciones plegables y barra
+  //
+  // El panel entero eran doce pantallas y media de movil, y dos secciones
+  // —Europa y proximos partidos— se llevaban el 55%. Plegadas de salida
+  // quedan cuatro, y la barra de arriba pone cada una a un toque en vez de a
+  // seis pantallas de scroll.
+  //
+  // Que este plegado se recuerda: quien vive en la seccion europea se la
+  // encuentra abierta la segunda vez.
+  const SECCIONES = [
+    { id: "seccion-tablas", plegable: false },
+    { id: "seccion-calor", abierta: false,
+      cuantos: () => `${doc.competitions.ESP1.n_teams} equipos × ${doc.competitions.ESP1.n_teams} puestos` },
+    { id: "seccion-calendario", abierta: true,
+      cuantos: () => `${doc.calendar.matchdays.length} jornadas` },
+    { id: "seccion-europa", abierta: false,
+      cuantos: () => {
+        const n = Object.values(doc.competitions).filter(c => c.type === "uefa_league_phase").length;
+        return n === 1 ? "1 competición" : `${n} competiciones`;
+      } },
+    { id: "seccion-partidos", abierta: false,
+      cuantos: () => `${doc.fixtures.length} partidos` },
+  ];
+
+  const memoriaSecciones = {
+    clave: "simliga:secciones",
+    leer() {
+      try { return JSON.parse(localStorage.getItem(this.clave)) || {}; }
+      catch (e) { return {}; }
+    },
+    guardar(id, abierta) {
+      try {
+        const mapa = this.leer();
+        mapa[id] = abierta;
+        localStorage.setItem(this.clave, JSON.stringify(mapa));
+      } catch (e) { /* navegacion privada: solo deja de recordarlo */ }
+    },
+  };
+
+  const abridores = new Map();          // id -> funcion que la abre
+
+  function montarPlegables() {
+    const recordado = memoriaSecciones.leer();
+
+    for (const cfg of SECCIONES) {
+      if (cfg.plegable === false) continue;
+      const seccion = document.getElementById(cfg.id);
+      const cabecera = seccion?.querySelector(".cabecera-seccion");
+      if (!cabecera || cabecera.querySelector(".plegar")) continue;
+
+      // El titulo y la intro pasan a una columna para poder poner el boton al
+      // lado; el HTML se queda como estaba.
+      const texto = el("div");
+      while (cabecera.firstChild) texto.append(cabecera.firstChild);
+      const cuantos = el("div", "cuantos");
+      texto.append(cuantos);
+
+      const boton = el("button", "plegar");
+      boton.type = "button";
+      boton.setAttribute("aria-controls", cfg.id);
+      const flecha = el("span", "flecha", "▾");
+      const etiqueta = el("span");
+      boton.append(flecha, etiqueta);
+      cabecera.append(texto, boton);
+
+      const aplicar = (abierta) => {
+        seccion.classList.toggle("plegada", !abierta);
+        boton.setAttribute("aria-expanded", abierta ? "true" : "false");
+        etiqueta.textContent = abierta ? "ocultar" : "ver";
+        const titulo = cabecera.querySelector("h2")?.textContent || "la sección";
+        boton.title = (abierta ? "Plegar " : "Desplegar ") + titulo.toLowerCase();
+        try { cuantos.textContent = cuantos.textContent || cfg.cuantos(); }
+        catch (e) { cuantos.textContent = ""; }
+      };
+
+      const abierta = cfg.id in recordado ? !!recordado[cfg.id] : cfg.abierta;
+      aplicar(abierta);
+      boton.addEventListener("click", () => {
+        const nueva = seccion.classList.contains("plegada");
+        aplicar(nueva);
+        memoriaSecciones.guardar(cfg.id, nueva);
+      });
+      abridores.set(cfg.id, () => { if (seccion.classList.contains("plegada")) boton.click(); });
+    }
+  }
+
+  function montarNavegacion() {
+    const barra = document.getElementById("navegacion");
+    if (!barra) return;
+    const enlaces = [...barra.querySelectorAll("a")];
+
+    for (const enlace of enlaces) {
+      enlace.addEventListener("click", (evento) => {
+        const id = enlace.getAttribute("href").slice(1);
+        const destino = document.getElementById(id);
+        if (!destino) return;
+        evento.preventDefault();
+        // Ir a una seccion plegada y encontrarla cerrada seria un viaje en
+        // balde: se abre sola.
+        abridores.get(id)?.();
+        destino.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+    // La seccion en la que se esta, resaltada. Se mira la ultima cuyo borde
+    // superior ya ha pasado por debajo de la barra; con IntersectionObserver
+    // una seccion plegada (que mide cuatro dedos) no se detecta bien.
+    let pendiente = false;
+    const marcar = () => {
+      pendiente = false;
+      const limite = barra.getBoundingClientRect().bottom + 12;
+      let actual = null;
+      for (const enlace of enlaces) {
+        const destino = document.getElementById(enlace.getAttribute("href").slice(1));
+        if (!destino || destino.hidden || enlace.hidden) continue;
+        if (destino.getBoundingClientRect().top <= limite) actual = enlace;
+      }
+      // Del todo arriba no ha pasado ninguna: se marca la primera, o la barra
+      // parece apagada justo cuando mas se mira.
+      if (!actual) actual = enlaces.find(e => !e.hidden) || null;
+      for (const enlace of enlaces) {
+        if (enlace === actual) enlace.setAttribute("aria-current", "true");
+        else enlace.removeAttribute("aria-current");
+      }
+    };
+    addEventListener("scroll", () => {
+      if (!pendiente) { pendiente = true; requestAnimationFrame(marcar); }
+    }, { passive: true });
+    addEventListener("resize", marcar);
+    marcar();
+  }
+
+  // Sin calendario, sin Europa o sin proximos partidos, esas secciones se
+  // ocultan solas; su enlace tiene que irse con ellas.
+  function sincronizarNavegacion() {
+    const barra = document.getElementById("navegacion");
+    if (!barra) return;
+    let visibles = 0;
+    for (const enlace of barra.querySelectorAll("a")) {
+      const destino = document.getElementById(enlace.getAttribute("href").slice(1));
+      enlace.hidden = !destino || destino.hidden;
+      if (!enlace.hidden) visibles += 1;
+    }
+    barra.hidden = visibles < 2;
+  }
+
   // ------------------------------------------------------------ directo
   // El panel publicado es una foto, y refrescarla cuesta un despliegue entero
   // de GitHub Pages: no baja del minuto y hay que provocarlo desde Actions.
@@ -1833,6 +2055,7 @@ tbody tr[data-equipo] { cursor: pointer; }
 
     if (clasificados) contenedor.append(tablaClasificados(clasificados));
 
+    const bloques = [];
     for (const comp of europeas) {
       const bloque = el("div", "seccion");
       bloque.style.marginTop = "1.75rem";
@@ -1916,8 +2139,35 @@ tbody tr[data-equipo] { cursor: pointer; }
       tb.append(cu);
       marco.append(tb);
       bloque.append(marco);
-      contenedor.append(bloque);
+      bloques.push({ nombre: comp.name, bloque });
     }
+
+    // Las tres tablas apiladas eran tres pantallas de movil. En pestanas se ve
+    // una y se cambia de un toque, con el reparto de plazas siempre encima,
+    // que es lo que se mira primero.
+    if (bloques.length > 1) {
+      const barra = el("div", "pestanas");
+      barra.style.marginTop = "1.75rem";
+      barra.setAttribute("role", "tablist");
+      barra.setAttribute("aria-label", "Competición europea");
+      bloques.forEach((b, i) => {
+        const boton = el("button", "pestana", b.nombre.replace(/^UEFA /, ""));
+        boton.type = "button";
+        boton.setAttribute("role", "tab");
+        boton.setAttribute("aria-selected", i === 0 ? "true" : "false");
+        boton.addEventListener("click", () => {
+          bloques.forEach((otro, j) => {
+            otro.bloque.hidden = j !== i;
+            barra.children[j].setAttribute("aria-selected", j === i ? "true" : "false");
+          });
+        });
+        barra.append(boton);
+        b.bloque.hidden = i !== 0;
+        b.bloque.style.marginTop = "1rem";
+      });
+      contenedor.append(barra);
+    }
+    for (const b of bloques) contenedor.append(b.bloque);
   }
 
   function tablaClasificados(clasificados) {
@@ -1964,7 +2214,12 @@ tbody tr[data-equipo] { cursor: pointer; }
       ? "Probabilidad de victoria local, empate y visitante. Las marcadas <span class=\"provisional\">provisional</span> aún no tienen día y hora confirmados por LaLiga."
       : "Probabilidad de victoria local, empate y visitante. Horarios en hora española.";
 
-    for (const m of doc.fixtures.slice(0, 20)) {
+    // De veinte tarjetas a seis. Era el bloque mas alto del panel, casi cuatro
+    // pantallas de movil, y ademas repite en parte lo que ya ensena el
+    // calendario, que abre por la jornada en curso. Las otras catorce siguen en
+    // el JSON y estan a un clic: la copia sin conexion no pierde nada.
+    const DE_ENTRADA = 6;
+    const tarjetaPartido = (m) => {
       const p = m.probabilities;
       const enJuego = m.status === "live";
       const card = el("div", "partido" + (enJuego ? " en-vivo" : ""));
@@ -2000,8 +2255,28 @@ tbody tr[data-equipo] { cursor: pointer; }
         card.append(el("div", "fecha",
           `<span>Goles esperados ${num(m.expected_goals.home)} – ${num(m.expected_goals.away)}</span>`));
       }
-      contenedor.append(card);
-    }
+      return card;
+    };
+
+    let pintados = 0;
+    const boton = el("button", "secundario");
+    boton.type = "button";
+    boton.style.gridColumn = "1 / -1";
+    const pintarTanda = (cuantos) => {
+      for (const m of doc.fixtures.slice(pintados, pintados + cuantos)) {
+        contenedor.append(tarjetaPartido(m));
+      }
+      pintados = Math.min(pintados + cuantos, doc.fixtures.length);
+      const quedan = doc.fixtures.length - pintados;
+      if (quedan > 0) {
+        boton.textContent = `Ver los ${quedan} siguientes`;
+        contenedor.append(boton);        // append lo mueve al final por si solo
+      } else {
+        boton.remove();
+      }
+    };
+    boton.addEventListener("click", () => pintarTanda(doc.fixtures.length));
+    pintarTanda(DE_ENTRADA);
   }
 
   // ------------------------------------------------------- ficha de equipo
@@ -2463,14 +2738,17 @@ tbody tr[data-equipo] { cursor: pointer; }
     const aviso = document.getElementById("aviso-estatico");
     aviso.hidden = false;
     aviso.innerHTML = motor
-      ? "<b>Esta copia simula sola.</b> El motor va incluido en la página, así que " +
-        "puedes cambiar el número de simulaciones y poner resultados en el calendario " +
-        "sin nada detrás, también sin conexión. Los partidos que se estén jugando sí " +
-        "los sigue en directo, pidiéndole el marcador a ESPN cada tres cuartos de " +
-        "minuto; lo que no cambia es la proyección, porque un resultado en vivo no " +
-        "cuenta hasta el pitido final. Lo demás son los datos del <b>" +
-        doc.as_of.date + "</b>. Para actualizarlos, abre el panel servido: " +
-        "<code>python -m simliga servidor --temporada " + doc.season + "</code>"
+      ? "<b>Esta copia simula sola</b> y sigue en directo los partidos en juego. " +
+        "Datos del <b>" + doc.as_of.date + "</b>." +
+        "<details><summary>Qué puede y qué no</summary>" +
+        "El motor va incluido en la página, así que puedes cambiar el número de " +
+        "simulaciones y poner resultados en el calendario sin nada detrás, también " +
+        "sin conexión. Los partidos que se estén jugando los sigue pidiéndole el " +
+        "marcador a ESPN cada tres cuartos de minuto; lo que no cambia es la " +
+        "proyección, porque un resultado en vivo no cuenta hasta el pitido final. " +
+        "Para traer datos nuevos, abre el panel servido: " +
+        "<code>python -m simliga servidor --temporada " + doc.season + "</code>" +
+        "</details>"
       : "<b>Este panel es una foto.</b> Para regenerar la simulación hace falta un " +
         "proceso que ejecute Python: <code>python -m simliga servidor --temporada " +
         doc.season + "</code>";
@@ -2478,6 +2756,9 @@ tbody tr[data-equipo] { cursor: pointer; }
 
   aplicarEscenarioGuardado();
   pintar();
+  montarPlegables();
+  sincronizarNavegacion();
+  montarNavegacion();
   seguirEnDirecto();
 
   // Las hipotesis guardadas se ven en el calendario nada mas abrir, pero las

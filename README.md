@@ -574,6 +574,21 @@ empatados a puntos el motor cae al criterio de diferencia general (la tabla
 real sí resuelve el caso completo). Los empates triples son raros y el sesgo
 sobre las probabilidades finales es de décimas de punto porcentual.
 
+**El panel arranca plegado.** Entero son doce pantallas y media de móvil, y no
+está repartido: «Competiciones europeas» y «Próximos partidos» se llevaban el
+55% del scroll ellas dos solas. Así que las secciones largas arrancan plegadas
+—con una línea que dice lo que hay dentro—, hay una barra pegajosa arriba para
+saltar a cualquiera, y lo que se despliega se recuerda: quien viva en la
+sección europea se la encuentra abierta la segunda vez.
+
+Con eso, y con las tres tablas europeas en pestañas y los próximos partidos
+empezando en seis en vez de veinte, **el panel pasa de 12,5 pantallas a 4,7**
+(en escritorio, de 5,3 a 3,7). Ningún dato desaparece: los veinte partidos
+siguen en el JSON y las tres competiciones siguen ahí, a un toque.
+
+Lo que **no** se ha hecho es apretar tipografías y paddings en general. Se gana
+poco, se toca todo y el panel se lee bien como está.
+
 **El directo lo sigue el panel, no el workflow.** Para ver un marcador en vivo
 hacen falta refrescos de un minuto, y por Actions no salen: GitHub no baja de
 cinco minutos entre ejecuciones programadas, se salta unas cuantas cuando va

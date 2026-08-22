@@ -445,7 +445,9 @@ def test_los_puntos_proyectados_se_pintan_como_enteros():
 def test_los_proximos_partidos_y_la_ficha_no_ignoran_escenarios():
     plantilla = (pathlib.Path(contract.__file__).parent / "dashboard.html").read_text(
         encoding="utf-8")
-    assert "doc.fixtures.slice(0, 20)" in plantilla
+    # Se pintan por tandas desde `doc.fixtures`, que es la lista que ya tiene
+    # los escenarios aplicados. La tanda cambio; la fuente no puede cambiar.
+    assert "doc.fixtures.slice(pintados, pintados + cuantos)" in plantilla
     assert "local.append(nodoEquipo(m.home_team));" in plantilla
     assert "local.append(nodoEquipo(m.home_team, { escudoDespues: true }));" in plantilla
     assert "partidosDelEquipo(equipo, 5)" in plantilla
@@ -1079,3 +1081,62 @@ def test_un_partido_acabado_que_el_modelo_aun_no_tiene_no_dice_en_juego():
     assert "m.live_final = marcador.completado;" in plantilla
     assert 'else if (enJuego && m.live_final) {' in plantilla
     assert 'el("span", "insignia insignia-live", "final")' in plantilla
+
+
+# ------------------------------------------------- compactado del panel
+def test_cada_enlace_de_la_barra_apunta_a_una_seccion_que_existe():
+    """Un href mal escrito no falla: simplemente no lleva a ninguna parte."""
+    import re
+
+    plantilla = _plantilla()
+    barra = plantilla.split('<nav class="navegacion"')[1].split("</nav>")[0]
+    destinos = re.findall(r'href="#([^"]+)"', barra)
+    assert len(destinos) >= 4, "la barra tiene que llevar a las secciones largas"
+    for destino in destinos:
+        assert f'id="{destino}"' in plantilla, f"la barra apunta a #{destino}, que no existe"
+
+
+def test_la_barra_de_secciones_se_queda_arriba_al_bajar():
+    plantilla = _plantilla()
+    barra = plantilla.split(".navegacion {")[1].split("}")[0]
+    assert "position: sticky" in barra and "top: 0" in barra
+
+
+def test_las_dos_secciones_mas_largas_arrancan_plegadas():
+    """Europa y proximos partidos eran el 55% del scroll en movil."""
+    plantilla = _plantilla()
+    bloque = plantilla.split("const SECCIONES = [")[1].split("];")[0]
+    assert '{ id: "seccion-europa", abierta: false,' in bloque
+    assert '{ id: "seccion-partidos", abierta: false,' in bloque
+    assert '{ id: "seccion-calendario", abierta: true,' in bloque
+
+
+def test_lo_plegado_se_recuerda_entre_visitas():
+    plantilla = _plantilla()
+    assert 'clave: "simliga:secciones"' in plantilla
+    assert "memoriaSecciones.guardar(cfg.id, nueva);" in plantilla
+
+
+def test_ir_a_una_seccion_plegada_la_abre():
+    """Saltar desde la barra y encontrarla cerrada seria un viaje en balde."""
+    plantilla = _plantilla()
+    assert "abridores.get(id)?.();" in plantilla
+
+
+def test_los_proximos_partidos_empiezan_en_seis_y_el_resto_van_a_peticion():
+    """Veinte tarjetas eran casi cuatro pantallas de movil, y repiten calendario.
+
+    Los veinte siguen en el JSON: la copia sin conexion no pierde ninguno.
+    """
+    plantilla = _plantilla()
+    assert "const DE_ENTRADA = 6;" in plantilla
+    assert "pintarTanda(DE_ENTRADA);" in plantilla
+    assert "`Ver los ${quedan} siguientes`" in plantilla
+
+
+def test_las_competiciones_europeas_van_en_pestanas():
+    """Tres tablas apiladas eran tres pantallas; en pestanas, una."""
+    plantilla = _plantilla()
+    cuerpo = plantilla.split("function pintarEuropa(")[1].split("\n  function ")[0]
+    assert 'const barra = el("div", "pestanas");' in cuerpo
+    assert "otro.bloque.hidden = j !== i;" in cuerpo
