@@ -470,7 +470,11 @@ def build_european_qualification(
     if len(tabla) < 8:
         return None
 
-    ucl, uel, uecl = cfg.sim.ucl_slots, cfg.sim.uel_slots, cfg.sim.uecl_slots
+    # Aqui se reparte lo que dio la temporada PASADA, que es un hecho conocido,
+    # no un supuesto sobre la que se esta jugando: por eso las plazas de
+    # Champions son las de aquel año y no las fijas.
+    ucl = cfg.sim.ucl_slots_temporada_anterior
+    uel, uecl = cfg.sim.uel_slots, cfg.sim.uecl_slots
     por_liga = list(tabla.itertuples(index=False))
     plazas_base = ucl + uel + uecl
     campeon_ya_clasificado = cup_winner in {f.team for f in por_liga[:plazas_base]}

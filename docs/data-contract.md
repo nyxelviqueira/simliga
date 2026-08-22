@@ -132,9 +132,9 @@ Códigos: `ESP1` (LaLiga), `ESP2` (Hypermotion), `UCL`, `UEL`, `UECL`.
   "name": "LaLiga EA Sports",
   "n_teams": 20,
   "qualification_rules": {      // rangos de posición [desde, hasta], ambos incluidos
-    "ucl":        [1, 5],       // 5 con la plaza extra por coeficiente UEFA (EPS)
-    "uel":        [6, 6],       // la otra UEL es la del campeón de Copa, que va aparte
-    "uecl":       [7, 7],
+    "ucl":        [1, 4],       // las plazas FIJAS; la 5a depende del EPS del año en curso
+    "uel":        [5, 5],       // la otra UEL es la del campeón de Copa, que va aparte
+    "uecl":       [6, 6],
     "relegation": [18, 20]
   },
   "qualification_note": "Reparto europeo provisional: ...",
@@ -143,6 +143,14 @@ Códigos: `ESP1` (LaLiga), `ESP2` (Hypermotion), `UCL`, `UEL`, `UECL`.
   "teams": [ /* ver 3.2 */ ]
 }
 ```
+
+**Las bandas no cubren el mismo numero de puestos**, y eso hay que decirlo al
+enseñarlas: Champions son cuatro y Europa League una sola. Un equipo con un
+17% de Champions y un 12% de Europa League no tiene "mas opciones de
+Champions": tiene un 4,3% por cada uno de los cuatro puestos de Champions y un
+12% del unico de Europa League, o sea que su destino individual mas probable es
+justo la Europa League. El panel lo resuelve escribiendo el rango debajo del
+nombre de cada columna (`Champions 1º-4º`, `Europa L. 5º`).
 
 `qualification_rules` es la **fuente de verdad base para pintar las bandas de
 color** de la tabla. No se deben cablear las posiciones en el frontend: la quinta

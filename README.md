@@ -574,6 +574,25 @@ empatados a puntos el motor cae al criterio de diferencia general (la tabla
 real sí resuelve el caso completo). Los empates triples son raros y el sesgo
 sobre las probabilidades finales es de décimas de punto porcentual.
 
+**Un número no podía responder a dos preguntas.** `ucl_slots` valía 5 y se usaba
+para dos cosas distintas: cuántas plazas de Champions **repartió** LaLiga
+2025-26 —un hecho, España tuvo la quinta por coeficiente UEFA— y cuántas
+**repartirá** la temporada que se está simulando, que depende del coeficiente
+del año en curso y no se sabe. El panel resolvía la segunda por su cuenta con
+cuatro plazas y una casilla para el supuesto, así que el JSON decía que el
+Betis tenía un 43,6% de Champions y la tabla enseñaba un 27,1%. Mismo
+documento, dos respuestas. Ahora son dos campos: `ucl_slots` (4, las fijas) y
+`ucl_slots_temporada_anterior` (5, para repartir quién juega Europa este año).
+
+**Las bandas no miden lo mismo, y la tabla ahora lo dice.** Champions cubre
+cuatro puestos y Europa League uno solo, así que un equipo de mitad de tabla
+sale siempre con más «opciones de Champions» que de Europa League sin que eso
+signifique nada. El Celta, con un 17,2% de Champions y un 12,0% de Europa
+League, tiene el 5º puesto como destino individual más probable de toda su
+distribución. Cada columna lleva ahora debajo cuántos puestos cubre
+(`Champions 1º-4º`, `Europa L. 5º`), que es lo que evita comparar peras con
+manzanas.
+
 **Una sección cada vez, y en móvil nada se arrastra.** El panel entero eran
 doce pantallas y media de móvil, y no estaba repartido: «Competiciones
 europeas» y «Próximos partidos» se llevaban el 55% del scroll ellas dos solas.

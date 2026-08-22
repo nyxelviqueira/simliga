@@ -143,19 +143,30 @@ class SimConfig:
     # Reglas de clasificacion de LaLiga.
     points_win: int = 3
     points_draw: int = 1
-    # Plazas europeas que reparte LA LIGA. La de Europa League del campeon de
-    # Copa NO se cuenta aqui: va aparte, porque puede tocarle a un equipo que no
-    # esta entre los de arriba (la Real Sociedad acabo 10a en 2025-26 y entro).
+    # Plazas europeas que reparte LA LIGA en la temporada que se simula. La de
+    # Europa League del campeon de Copa NO se cuenta aqui: va aparte, porque
+    # puede tocarle a un equipo que no esta entre los de arriba (la Real
+    # Sociedad acabo 10a en 2025-26 y entro).
     #
-    # La quinta de Champions es la que la UEFA da por rendimiento continental
-    # (European Performance Spot) y no esta garantizada de un año para otro.
-    # Espana la tuvo en 2025-26: el quinto, el Betis con 60 puntos, entro en
-    # Champions, y todo el reparto de abajo bajo un escalon. Si algun año no se
-    # consigue, hay que volver a poner 4 aqui.
-    ucl_slots: int = 5
+    # Son las FIJAS, cuatro. La quinta de Champions es la que la UEFA da por
+    # rendimiento continental (European Performance Spot) y se decide con el
+    # coeficiente del año EN CURSO, asi que mientras la temporada se esta
+    # jugando no se sabe si la habra. El panel la ofrece como supuesto, con una
+    # casilla que se puede marcar; aqui no se da por hecha.
+    #
+    # Darla por hecha tenia ademas un efecto feo en la lectura: la banda de
+    # Champions pasaba a cubrir cinco puestos frente al unico de Europa League,
+    # y un equipo de mitad de tabla aparecia con el doble de "opciones de
+    # Champions" que de Europa League sin que eso significara nada.
+    ucl_slots: int = 4
     uel_slots: int = 1
     uecl_slots: int = 1
     relegation_slots: int = 3
+    # De la temporada PASADA si se sabe cuantas hubo, y es de donde sale quien
+    # juega Europa esta temporada. Espana tuvo el EPS en 2025-26: el quinto, el
+    # Betis con 60 puntos, entro en Champions y todo el reparto de abajo bajo un
+    # escalon. HAY QUE REVISAR ESTA LINEA CADA TEMPORADA.
+    ucl_slots_temporada_anterior: int = 5
 
 
 @dataclass

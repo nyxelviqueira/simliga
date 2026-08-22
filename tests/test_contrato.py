@@ -119,13 +119,14 @@ def test_las_reglas_de_clasificacion_cubren_rangos_validos(documento):
         assert 1 <= desde <= hasta <= n, nombre
     assert reglas["ucl"][1] + 1 == reglas["uel"][0]      # rangos contiguos
     assert reglas["uel"][1] + 1 == reglas["uecl"][0]
-    # Espana tiene la 5a plaza de Champions por coeficiente UEFA (EPS): en
-    # 2025-26 el quinto, el Betis, entro en Champions. Las plazas que cuentan
-    # aqui son las que reparte LA LIGA; la Europa League del campeon de Copa va
-    # aparte, porque puede tocarle a alguien de mitad de tabla.
-    assert reglas["ucl"] == [1, 5], "cinco plazas Champions con el EPS"
-    assert reglas["uel"] == [6, 6], "la otra UEL es la del campeon de Copa"
-    assert reglas["uecl"] == [7, 7]
+    # Las plazas FIJAS, que son las que se pueden dar por hechas mientras la
+    # temporada se juega: la 5a de Champions depende del coeficiente UEFA (EPS)
+    # del año en curso y el panel la ofrece como supuesto, con una casilla.
+    # Estas son ademas las que reparte LA LIGA; la Europa League del campeon de
+    # Copa va aparte, porque puede tocarle a alguien de mitad de tabla.
+    assert reglas["ucl"] == [1, 4], "cuatro plazas fijas de Champions"
+    assert reglas["uel"] == [5, 5], "la otra UEL es la del campeon de Copa"
+    assert reglas["uecl"] == [6, 6]
     assert "qualification_note" in documento["competitions"]["ESP1"]
     assert "coeficiente" in documento["competitions"]["ESP1"]["qualification_note"]
 
@@ -1146,10 +1147,13 @@ def test_la_tabla_de_proyeccion_no_se_arrastra_en_movil():
 def test_al_recomponer_la_tabla_no_se_pierde_ninguna_cifra():
     """Apilar si; ocultar columnas no. Cada celda lleva el nombre de la suya."""
     plantilla = _plantilla()
-    for etiqueta in ("J", "Pts", "Puntos al final", "Título", "Champions",
-                     "Europa L.", "Conference", "Descenso"):
+    for etiqueta in ("J", "Pts", "Puntos al final", "Título 1º", "Champions ",
+                     "Europa L. ", "Conference ", "Descenso "):
         assert f'"{etiqueta}"' in plantilla, f"falta la etiqueta {etiqueta}"
-    assert 'celdaProb(t.outcomes.title, "Título")' in plantilla
+    assert 'celdaProb(t.outcomes.title, "Título 1º")' in plantilla
+    # La etiqueta lleva ademas cuantos puestos cubre la banda, que es lo que
+    # evita comparar un 17% de cuatro puestos con un 12% de uno solo.
+    assert 'celdaProb(o.ucl, "Champions " + rangoPuestos(reglas.ucl))' in plantilla
     assert 'celdaProyeccion.dataset.etiqueta = "Puntos al final";' in plantilla
 
 
@@ -1179,3 +1183,35 @@ def test_las_competiciones_europeas_van_en_pestanas():
     cuerpo = plantilla.split("function pintarEuropa(")[1].split("\n  function ")[0]
     assert 'const barra = el("div", "pestanas");' in cuerpo
     assert "otro.bloque.hidden = j !== i;" in cuerpo
+
+
+def test_las_bandas_del_json_son_las_que_ensena_el_panel():
+    """Eran dos respuestas distintas para la misma pregunta.
+
+    `ucl_slots` valia 5 y servia para dos cosas: cuantas plazas de Champions
+    repartio la temporada pasada (un hecho) y cuantas repartira la que se esta
+    jugando (un supuesto sobre un coeficiente que aun no existe). El panel
+    resolvia la segunda por su cuenta con 4 y una casilla, asi que el JSON decia
+    que el Betis tenia un 43,6% de Champions y la tabla ensenaba un 27,1%.
+    """
+    from simliga.config import load_config
+    from simliga.output import dashboard  # noqa: F401  (asegura que la plantilla existe)
+
+    cfg = load_config()
+    assert cfg.sim.ucl_slots == 4
+    plantilla = _plantilla()
+    base = plantilla.split("const reglasBasePlazas = {")[1].split("};")[0]
+    assert f"ucl: [1, {cfg.sim.ucl_slots}]" in base
+    assert f"uel: [{cfg.sim.ucl_slots + 1}, {cfg.sim.ucl_slots + cfg.sim.uel_slots}]" in base
+
+
+def test_el_reparto_de_europa_usa_las_plazas_de_la_temporada_pasada():
+    """Esa si es un hecho: Espana tuvo el EPS en 2025-26 y el quinto fue a UCL."""
+    from simliga.config import load_config
+
+    cfg = load_config()
+    assert cfg.sim.ucl_slots_temporada_anterior == 5
+    fuente = pathlib.Path(contract.__file__).read_text(encoding="utf-8")
+    cuerpo = fuente.split("def build_european_qualification(")[1].split("def _empezada")[0]
+    assert "cfg.sim.ucl_slots_temporada_anterior" in cuerpo
+    assert "ucl, uel, uecl = cfg.sim.ucl_slots," not in cuerpo

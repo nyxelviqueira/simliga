@@ -301,6 +301,13 @@ tbody tr:hover td { background: var(--surface-alt); }
    que los nombres largos empujen a las probabilidades y la tabla baile al
    regenerar con otros datos. */
 .tabla-liga { table-layout: fixed; min-width: 980px; }
+/* Cuantos puestos cubre la columna. Sin esto, «Champions 16%» y «Europa L.
+   12%» parecen comparables y no lo son: una casilla vale por cuatro puestos y
+   la otra por uno. */
+.rango-puesto {
+  display: block; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--ink-faint); font-size: 0.92em;
+}
 .tabla-liga .c-pos { width: 44px; }
 .tabla-liga .c-equipo { width: 190px; }
 .tabla-liga .c-mini { width: 40px; }
@@ -1084,6 +1091,15 @@ tbody tr[data-equipo] { cursor: pointer; }
       ` Europa League y ${reglas.uecl[0]}º Conference.`;
   }
 
+  // Cada banda cubre un numero distinto de puestos: Champions son cuatro y
+  // Europa League una sola. Sin decirlo, la tabla invita a leer que un equipo
+  // "tiene mas opciones de Champions que de Europa League" cuando lo que pasa
+  // es que una casilla es cuatro veces mas ancha que la otra. El Celta, con un
+  // 16,2% de Champions y un 12,4% de Europa League, tiene de hecho el 5o puesto
+  // como destino individual mas probable de toda su distribucion.
+  const rangoPuestos = (rango) =>
+    rango[0] === rango[1] ? `${rango[0]}º` : `${rango[0]}º-${rango[1]}º`;
+
   function sumarRango(probs, rango) {
     if (!rango) return 0;
     let total = 0;
@@ -1196,7 +1212,11 @@ tbody tr[data-equipo] { cursor: pointer; }
       <thead><tr>
         <th>#</th><th>Equipo</th><th>J</th><th>Pts</th>
         <th>Puntos</th><th></th>
-        <th>Título</th><th>Champions</th><th>Europa L.</th><th>Conference</th><th>Descenso</th>
+        <th>Título<span class="rango-puesto">1º</span></th>
+        <th>Champions<span class="rango-puesto">${rangoPuestos(reglas.ucl)}</span></th>
+        <th>Europa L.<span class="rango-puesto">${rangoPuestos(reglas.uel)}</span></th>
+        <th>Conference<span class="rango-puesto">${rangoPuestos(reglas.uecl)}</span></th>
+        <th>Descenso<span class="rango-puesto">${rangoPuestos(reglas.relegation)}</span></th>
       </tr></thead>`;
     const cuerpo = el("tbody");
     equipos.forEach((t, i) => {
@@ -1235,11 +1255,11 @@ tbody tr[data-equipo] { cursor: pointer; }
         celdaPts,
         celdaProyeccion,
         barra,
-        celdaProb(t.outcomes.title, "Título"),
-        celdaProb(o.ucl, "Champions"),
-        celdaProb(o.uel, "Europa L."),
-        celdaProb(o.uecl, "Conference"),
-        celdaProb(o.relegation, "Descenso"),
+        celdaProb(t.outcomes.title, "Título 1º"),
+        celdaProb(o.ucl, "Champions " + rangoPuestos(reglas.ucl)),
+        celdaProb(o.uel, "Europa L. " + rangoPuestos(reglas.uel)),
+        celdaProb(o.uecl, "Conference " + rangoPuestos(reglas.uecl)),
+        celdaProb(o.relegation, "Descenso " + rangoPuestos(reglas.relegation)),
       );
       hacerClicable(tr, t.team_id);
       cuerpo.append(tr);
